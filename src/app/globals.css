@@ -1,0 +1,313 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  ─────────────────────────────────────────────────────────────────────────
+  HIRING OS · DESIGN SYSTEM
+  Dark-first. Deep midnight navy base · electric-blue primary · plasma-purple
+  accent · aurora-cyan highlights. Tokens are HSL triplets so shadcn-style
+  `hsl(var(--x) / a)` opacity composition works everywhere.
+  ─────────────────────────────────────────────────────────────────────────
+*/
+
+@layer base {
+  :root {
+    /* Surfaces — deep midnight stack */
+    --background: 230 44% 5%;
+    --foreground: 213 31% 95%;
+
+    --card: 230 34% 8%;
+    --card-foreground: 213 31% 95%;
+
+    --popover: 231 38% 7%;
+    --popover-foreground: 213 31% 95%;
+
+    /* Brand — electric blue primary */
+    --primary: 227 92% 63%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 230 24% 14%;
+    --secondary-foreground: 213 24% 90%;
+
+    --muted: 230 22% 12%;
+    --muted-foreground: 222 14% 60%;
+
+    --accent: 231 26% 15%;
+    --accent-foreground: 213 24% 94%;
+
+    --destructive: 0 72% 56%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 60% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 56%;
+    --warning-foreground: 36 60% 8%;
+
+    --border: 228 22% 16%;
+    --input: 228 22% 17%;
+    --ring: 227 92% 63%;
+
+    /* Brand identity scales */
+    --electric: 222 95% 61%;
+    --electric-soft: 218 92% 72%;
+    --plasma: 264 85% 67%;
+    --plasma-soft: 270 90% 78%;
+    --aurora: 190 95% 58%;
+
+    --radius: 0.75rem;
+  }
+
+  /* Light theme — used for a few marketing surfaces / optional toggle */
+  .light {
+    --background: 220 40% 99%;
+    --foreground: 230 38% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 230 38% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 230 38% 9%;
+    --primary: 227 90% 56%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 222 30% 95%;
+    --secondary-foreground: 230 30% 16%;
+    --muted: 222 28% 95%;
+    --muted-foreground: 222 12% 42%;
+    --accent: 222 30% 94%;
+    --accent-foreground: 230 30% 16%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 58% 38%;
+    --success-foreground: 0 0% 100%;
+    --warning: 32 92% 46%;
+    --warning-foreground: 0 0% 100%;
+    --border: 222 22% 88%;
+    --input: 222 22% 86%;
+    --ring: 227 90% 56%;
+    --electric: 222 90% 52%;
+    --electric-soft: 218 86% 60%;
+    --plasma: 264 70% 56%;
+    --plasma-soft: 270 76% 64%;
+    --aurora: 190 80% 44%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Typographic rhythm */
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+    text-wrap: balance;
+  }
+
+  ::selection {
+    background: hsl(var(--electric) / 0.3);
+    color: hsl(var(--foreground));
+  }
+
+  /* Refined dark scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+    background-clip: content-box;
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring) / 0.7);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Glassmorphism surfaces */
+  .glass {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--card) / 0.7),
+      hsl(var(--card) / 0.45)
+    );
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    border: 1px solid hsl(var(--border) / 0.8);
+  }
+
+  .glass-strong {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--card) / 0.92),
+      hsl(var(--card) / 0.78)
+    );
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    border: 1px solid hsl(var(--border));
+  }
+
+  /* The signature elevated panel used across the app */
+  .panel {
+    @apply rounded-2xl border border-border/80 bg-card/70 shadow-card backdrop-blur-xl;
+  }
+
+  /* Hairline gradient ring (for premium card borders) */
+  .ring-gradient {
+    position: relative;
+  }
+  .ring-gradient::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      140deg,
+      hsl(var(--electric) / 0.55),
+      hsl(var(--plasma) / 0.18) 40%,
+      transparent 70%
+    );
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+@layer utilities {
+  /* Brand gradient text */
+  .text-gradient {
+    @apply bg-gradient-to-r from-electric-soft via-foreground to-plasma-soft bg-clip-text text-transparent;
+  }
+  .text-gradient-brand {
+    background-image: linear-gradient(
+      100deg,
+      hsl(var(--electric-soft)),
+      hsl(var(--plasma-soft))
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Faint engineering grid background */
+  .bg-grid {
+    background-image: linear-gradient(
+        to right,
+        hsl(var(--border) / 0.45) 1px,
+        transparent 1px
+      ),
+      linear-gradient(to bottom, hsl(var(--border) / 0.45) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+  .bg-dots {
+    background-image: radial-gradient(
+      hsl(var(--border) / 0.7) 1px,
+      transparent 1px
+    );
+    background-size: 22px 22px;
+  }
+
+  /* Radial mask to fade edges of decorative layers */
+  .mask-radial {
+    -webkit-mask-image: radial-gradient(
+      ellipse 70% 60% at 50% 40%,
+      #000 40%,
+      transparent 100%
+    );
+    mask-image: radial-gradient(
+      ellipse 70% 60% at 50% 40%,
+      #000 40%,
+      transparent 100%
+    );
+  }
+  .mask-b {
+    -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 60%, transparent 100%);
+  }
+
+  /* Glow halos */
+  .glow-electric {
+    box-shadow: 0 0 0 1px hsl(var(--electric) / 0.2),
+      0 0 40px -6px hsl(var(--electric) / 0.55);
+  }
+  .glow-text {
+    text-shadow: 0 0 28px hsl(var(--electric) / 0.45);
+  }
+
+  /* Subtle film grain to kill banding on big gradients */
+  .noise {
+    position: relative;
+  }
+  .noise::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* Skeleton shimmer */
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--foreground) / 0.06),
+      transparent
+    );
+    animation: shimmer 2s infinite;
+  }
+
+  .animation-delay-200 { animation-delay: 0.2s; }
+  .animation-delay-400 { animation-delay: 0.4s; }
+  .animation-delay-700 { animation-delay: 0.7s; }
+  .animation-delay-1000 { animation-delay: 1s; }
+
+  /* Hide content until GSAP/Framer reveals it (avoids FOUC on scroll-ins) */
+  .reveal-hidden {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .reveal-hidden {
+    opacity: 1 !important;
+  }
+}
