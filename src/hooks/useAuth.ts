@@ -1,73 +1,90 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { authService } from "@/services";
+import { authClient, type AuthResult } from "@/services/auth-client";
 import { queryKeys } from "@/lib/query-keys";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   authFailed,
   authPending,
   logout as logoutAction,
-  setCredentials,
+  setSession,
 } from "@/store/slices/authSlice";
 import type {
   CandidateRegisterRequest,
   CompanyRegisterRequest,
   LoginRequest,
-  TokenResponse,
 } from "@/types";
 
-/** Auth state + login/register/logout mutations wired into Redux. */
+/** Validates the httpOnly-cookie session against the backend (/auth/me). */
+export function useSession(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.auth.me,
+    queryFn: () => authClient.session(),
+    enabled,
+    retry: false,
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+/** Auth state + login/register/logout wired to the BFF and Redux. */
 export function useAuth() {
   const dispatch = useAppDispatch();
   const queryClient = useQueryClient();
   const auth = useAppSelector((s) => s.auth);
 
-  const handleToken = (res: TokenResponse) => {
-    dispatch(
-      setCredentials({
-        token: res.access_token,
-        actorType: res.actor_type,
-        identity: res.identity,
-      })
-    );
+  const onAuthed = (res: AuthResult) => {
+    dispatch(setSession({ actorType: res.actor_type, identity: res.identity }));
+    queryClient.invalidateQueries({ queryKey: queryKeys.auth.me });
   };
+  const onError = (e: unknown) =>
+    dispatch(authFailed((e as { message?: string })?.message ?? "Auth failed"));
 
   const loginCompany = useMutation({
     mutationFn: (payload: LoginRequest) => {
       dispatch(authPending());
-      return authService.loginCompany(payload);
+      return authClient.login("company", payload);
     },
-    onSuccess: handleToken,
-    onError: (e: { message?: string }) =>
-      dispatch(authFailed(e?.message ?? "Login failed")),
+    onSuccess: onAuthed,
+    onError,
+  });
+
+  const loginCandidate = useMutation({
+    mutationFn: (payload: LoginRequest) => {
+      dispatch(authPending());
+      return authClient.login("candidate", payload);
+    },
+    onSuccess: onAuthed,
+    onError,
   });
 
   const registerCompany = useMutation({
     mutationFn: (payload: CompanyRegisterRequest) => {
       dispatch(authPending());
-      return authService.registerCompany(payload);
+      return authClient.registerCompany(payload);
     },
-    onSuccess: handleToken,
-    onError: (e: { message?: string }) =>
-      dispatch(authFailed(e?.message ?? "Registration failed")),
-  });
-
-  const loginCandidate = useMutation({
-    mutationFn: (payload: LoginRequest) => authService.loginCandidate(payload),
-    onSuccess: handleToken,
+    onSuccess: onAuthed,
+    onError,
   });
 
   const registerCandidate = useMutation({
-    mutationFn: (payload: CandidateRegisterRequest) =>
-      authService.registerCandidate(payload),
-    onSuccess: handleToken,
+    mutationFn: (payload: CandidateRegisterRequest) => {
+      dispatch(authPending());
+      return authClient.registerCandidate(payload);
+    },
+    onSuccess: onAuthed,
+    onError,
   });
 
-  const logout = () => {
-    dispatch(logoutAction());
-    queryClient.clear();
+  const logout = async () => {
+    try {
+      await authClient.logout();
+    } finally {
+      dispatch(logoutAction());
+      queryClient.clear();
+    }
   };
 
   return {
@@ -77,6 +94,5 @@ export function useAuth() {
     loginCandidate,
     registerCandidate,
     logout,
-    queryKey: queryKeys.auth.me,
   };
 }

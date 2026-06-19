@@ -41,16 +41,10 @@ const persistConfig = {
   key: "hiring-os-root",
   version: 1,
   storage,
-  // Persist durable client state only; volatile view filters reset each session.
-  whitelist: [
-    "auth",
-    "ui",
-    "aiAgent",
-    "user",
-    "company",
-    "notifications",
-    "dashboard",
-  ],
+  // Persist durable client UI state only. Auth is intentionally NOT persisted —
+  // the httpOnly cookie is the source of truth and is re-validated via
+  // /api/auth/session on load (see AppChrome).
+  whitelist: ["ui", "aiAgent", "user", "company", "notifications", "dashboard"],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

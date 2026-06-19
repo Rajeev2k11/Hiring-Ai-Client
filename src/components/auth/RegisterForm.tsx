@@ -77,7 +77,14 @@ export function RegisterForm({ actor }: { actor: Actor }) {
       toast.success("Account created — welcome to Hiring OS");
       router.push(actor === "company" ? "/dashboard" : "/portal");
     } catch (e) {
-      toast.error((e as { message?: string })?.message ?? "Registration failed");
+      const msg = (e as { message?: string })?.message ?? "Registration failed";
+      if (/already/i.test(msg)) {
+        toast.error("This email is already registered — try signing in instead.", {
+          action: { label: "Sign in", onClick: () => router.push(copy.loginHref) },
+        });
+      } else {
+        toast.error(msg);
+      }
     }
   };
 
