@@ -97,7 +97,10 @@ export default function SettingsPage() {
               onClick={() =>
                 updateProfile.mutate(
                   { name, email },
-                  { onSuccess: () => toast.success("Profile updated") }
+                  {
+                    onSuccess: () => toast.success("Profile updated"),
+                    onError: (e) => toast.error((e as Error).message),
+                  }
                 )
               }
             >
@@ -116,7 +119,7 @@ export default function SettingsPage() {
                 desc="Product news, tips, and occasional announcements."
                 checked={profile.email_updates}
                 onChange={(v) =>
-                  updateNotifications.mutate({ email_updates: v }, { onSuccess: () => toast.success("Saved") })
+                  updateNotifications.mutate({ email_updates: v }, { onSuccess: () => toast.success("Saved"), onError: (e) => toast.error((e as Error).message) })
                 }
               />
               <ToggleRow
@@ -124,7 +127,7 @@ export default function SettingsPage() {
                 desc="Real-time alerts when candidates move through your pipeline."
                 checked={profile.application_updates}
                 onChange={(v) =>
-                  updateNotifications.mutate({ application_updates: v }, { onSuccess: () => toast.success("Saved") })
+                  updateNotifications.mutate({ application_updates: v }, { onSuccess: () => toast.success("Saved"), onError: (e) => toast.error((e as Error).message) })
                 }
               />
             </div>
@@ -157,6 +160,7 @@ export default function SettingsPage() {
                       toast.success("Password changed");
                       setPw({ current: "", next: "" });
                     },
+                    onError: (e) => toast.error((e as Error).message),
                   }
                 );
               }}
@@ -168,7 +172,7 @@ export default function SettingsPage() {
           <Panel
             title="Active sessions"
             action={
-              <Button variant="outline" size="sm" onClick={() => revokeOthers.mutate(undefined, { onSuccess: (r) => toast.success(`Revoked ${r.revoked} session(s)`) })}>
+              <Button variant="outline" size="sm" onClick={() => revokeOthers.mutate(undefined, { onSuccess: (r) => toast.success(`Revoked ${r.revoked} session(s)`), onError: (e) => toast.error((e as Error).message) })}>
                 Sign out others
               </Button>
             }
@@ -191,7 +195,7 @@ export default function SettingsPage() {
                     </div>
                   </div>
                   {!s.is_current && (
-                    <Button variant="ghost" size="sm" className="text-red-300" onClick={() => revokeSession.mutate(s.id, { onSuccess: () => toast.success("Session revoked") })}>
+                    <Button variant="ghost" size="sm" className="text-red-300" onClick={() => revokeSession.mutate(s.id, { onSuccess: () => toast.success("Session revoked"), onError: (e) => toast.error((e as Error).message) })}>
                       Revoke
                     </Button>
                   )}
@@ -231,6 +235,7 @@ export default function SettingsPage() {
                       logout();
                       router.push("/");
                     },
+                    onError: (e) => toast.error((e as Error).message),
                   });
                 }}
               >

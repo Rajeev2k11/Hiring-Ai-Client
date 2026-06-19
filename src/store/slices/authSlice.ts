@@ -41,6 +41,21 @@ const authSlice = createSlice({
       state.status = "succeeded";
       state.error = null;
     },
+    /**
+     * Set the resolved session from the httpOnly cookie (the token stays
+     * server-side; the client only tracks identity + actor for the UI).
+     */
+    setSession(
+      state,
+      action: PayloadAction<{ actorType: ActorType; identity: Identity }>
+    ) {
+      state.token = null;
+      state.actorType = action.payload.actorType;
+      state.identity = action.payload.identity;
+      state.isAuthenticated = true;
+      state.status = "succeeded";
+      state.error = null;
+    },
     setIdentity(state, action: PayloadAction<Identity>) {
       state.identity = action.payload;
     },
@@ -59,6 +74,12 @@ const authSlice = createSlice({
   },
 });
 
-export const { authPending, setCredentials, setIdentity, authFailed, logout } =
-  authSlice.actions;
+export const {
+  authPending,
+  setCredentials,
+  setSession,
+  setIdentity,
+  authFailed,
+  logout,
+} = authSlice.actions;
 export default authSlice.reducer;
