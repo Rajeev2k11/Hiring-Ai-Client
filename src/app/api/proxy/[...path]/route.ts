@@ -44,9 +44,12 @@ async function handler(
   const init: RequestInit = { method: req.method, headers, cache: "no-store" };
 
   if (req.method !== "GET" && req.method !== "HEAD") {
-    const body = await req.text();
-    if (body) {
-      init.body = body;
+    // Read the body as raw bytes so binary payloads (e.g. multipart résumé
+    // uploads) are forwarded intact. The original Content-Type — including the
+    // multipart boundary — is preserved so the backend can parse it.
+    const buf = await req.arrayBuffer();
+    if (buf.byteLength > 0) {
+      init.body = Buffer.from(buf);
       headers["Content-Type"] =
         req.headers.get("content-type") ?? "application/json";
     }

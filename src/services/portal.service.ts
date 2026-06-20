@@ -1,17 +1,25 @@
-import { clone, resolve } from "./api-helpers";
-import { APPLICATIONS, COMPANY, JOBS } from "./mock/seed";
+import { api } from "@/lib/api-fetch";
+import { applicationsService } from "./applications.service";
 import { JobStatus } from "@/types";
-import type { ISODateString, Job } from "@/types";
+import type {
+  Application,
+  ApplicationCreateInput,
+  ISODateString,
+  Job,
+} from "@/types";
 
 /**
- * Candidate-portal data. The backend has no candidate-scoped "my applications"
- * endpoint yet, so this is mock-derived from the shared seed for the demo.
+ * Candidate-portal data — real backend via the authenticated BFF proxy.
+ * Open roles + a single job come from the public /jobs routes; applying goes
+ * through /jobs/{id}/apply.
+ *
+ * "My applications" is derived from GET /applications (the backend has no
+ * candidate-scoped list yet) filtered to the signed-in candidate in the hook.
  */
 export interface PortalApplication {
   id: string;
   job_id: string;
   job_title: string;
-  company: string;
   location: string | null;
   status: string;
   match_score: number | null;
@@ -19,7 +27,8 @@ export interface PortalApplication {
   next_step: string | null;
 }
 
-const STEP_BY_STATUS: Record<string, string | null> = {
+/** Human "what happens next" label per application status. */
+export const STEP_BY_STATUS: Record<string, string | null> = {
   APPLIED: "Awaiting review",
   SCREENING: "AI screening in progress",
   SHORTLISTED: "Shortlisted — interview likely",
@@ -30,38 +39,18 @@ const STEP_BY_STATUS: Record<string, string | null> = {
 };
 
 export const portalService = {
-  myApplications(): Promise<PortalApplication[]> {
-    return resolve(
-      () =>
-        APPLICATIONS.slice(0, 5).map((a) => {
-          const job = JOBS.find((j) => j.id === a.job_id);
-          return {
-            id: a.id,
-            job_id: a.job_id,
-            job_title: job?.title ?? "Role",
-            company: COMPANY.name,
-            location: job?.location ?? null,
-            status: a.status,
-            match_score: a.match_score,
-            applied_at: a.created_at,
-            next_step: STEP_BY_STATUS[a.status] ?? null,
-          };
-        }),
-      async () => []
-    );
-  },
-
+  /** All open roles for the candidate listing — GET /jobs?status=OPEN. */
   openJobs(): Promise<Job[]> {
-    return resolve(
-      () => clone(JOBS.filter((j) => j.status === JobStatus.OPEN)),
-      async () => []
-    );
+    return api.get<Job[]>(`jobs?status=${JobStatus.OPEN}`);
   },
 
-  job(id: string): Promise<Job | undefined> {
-    return resolve(
-      () => clone(JOBS.find((j) => j.id === id)),
-      async () => undefined
-    );
+  /** A single job — GET /jobs/{id}. */
+  job(id: string): Promise<Job> {
+    return api.get<Job>(`jobs/${id}`);
+  },
+
+  /** Apply to a job — POST /jobs/{id}/apply. */
+  apply(jobId: string, payload: ApplicationCreateInput): Promise<Application> {
+    return applicationsService.apply(jobId, payload);
   },
 };

@@ -7,7 +7,6 @@ import { PageHeader } from "@/components/app/PageHeader";
 import { StatCard } from "@/components/app/StatCard";
 import { Panel } from "@/components/app/Panel";
 import { StatusBadge } from "@/components/app/StatusBadge";
-import { ScoreRing } from "@/components/shared/ScoreRing";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMyApplications, usePortalJobs } from "@/hooks/usePortal";
@@ -53,7 +52,7 @@ export default function PortalHome() {
                 <Link key={a.id} href={`/portal/applications`} className="flex items-center gap-4 px-5 py-4 hover:bg-secondary/30">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{a.job_title}</p>
-                    <p className="truncate text-xs text-muted-foreground">{a.company} · applied {formatRelative(a.applied_at)}</p>
+                    <p className="truncate text-xs text-muted-foreground">{a.location ?? "Remote"} · applied {formatRelative(a.applied_at)}</p>
                   </div>
                   <StatusBadge value={a.status} meta={APPLICATION_STATUS_META} />
                 </Link>
@@ -73,10 +72,12 @@ export default function PortalHome() {
                 href={`/portal/jobs/${j.id}`}
                 className="flex items-center gap-3 rounded-xl border border-border/50 bg-secondary/20 p-3.5 hover:border-electric/40"
               >
-                <ScoreRing score={88} size={40} />
+                <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-border/60 bg-secondary/40 text-electric-soft">
+                  <Briefcase className="size-4" />
+                </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{j.title}</p>
-                  <p className="truncate text-xs text-muted-foreground">{j.department} · {j.location}</p>
+                  <p className="truncate text-xs text-muted-foreground">{j.department ?? "—"} · {j.location ?? "Remote"}</p>
                 </div>
                 <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
               </Link>

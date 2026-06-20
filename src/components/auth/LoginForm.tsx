@@ -25,17 +25,15 @@ type FormValues = z.infer<typeof schema>;
 
 type Actor = "company" | "candidate";
 
-const COPY: Record<Actor, { title: string; subtitle: string; demoEmail: string; registerHref: string }> = {
+const COPY: Record<Actor, { title: string; subtitle: string; registerHref: string }> = {
   company: {
     title: "Sign in to your workspace",
     subtitle: "Welcome back. Your agents have been busy.",
-    demoEmail: "alex@northwind.co",
     registerHref: "/register",
   },
   candidate: {
     title: "Sign in as a candidate",
     subtitle: "Pick up where you left off on your job search.",
-    demoEmail: "jordan@example.com",
     registerHref: "/candidate/register",
   },
 };
@@ -52,7 +50,7 @@ export function LoginForm({ actor }: { actor: Actor }) {
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { email: copy.demoEmail, password: "demo-password" },
+    defaultValues: { email: "", password: "" },
   });
 
   const onSubmit = async (values: FormValues) => {

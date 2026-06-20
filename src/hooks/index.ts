@@ -2,6 +2,8 @@ export * from "./useAuth";
 export * from "./useDashboard";
 export * from "./useJobs";
 export * from "./useCandidates";
+export * from "./useApplications";
+export * from "./useResume";
 export * from "./useInterviews";
 export * from "./useSourcing";
 export * from "./useAnalytics";
