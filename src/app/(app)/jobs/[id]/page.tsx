@@ -35,15 +35,24 @@ export default function JobDetailPage() {
   const { data: detail } = useCandidate(selectedId ?? "", Boolean(selectedId));
   const updateStatus = useUpdateApplicationStatus();
 
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overStatus, setOverStatus] = useState<string | null>(null);
+
   const byStatus = (status: string) =>
     (candidates ?? []).filter((c) => c.status === status);
 
-  const move = (status: string) => {
-    if (!selectedId) return;
+  /** Move a specific application to a stage (used by both the buttons and DnD). */
+  const moveTo = (applicationId: string, status: string) => {
+    const card = (candidates ?? []).find((c) => c.application_id === applicationId);
+    if (!card || card.status === status) return;
     updateStatus.mutate(
-      { id: selectedId, status },
+      { id: applicationId, status },
       { onSuccess: () => toast.success(`Moved to ${APPLICATION_STATUS_META[status]?.label ?? status}`) }
     );
+  };
+
+  const move = (status: string) => {
+    if (selectedId) moveTo(selectedId, status);
   };
 
   return (
@@ -88,18 +97,44 @@ export default function JobDetailPage() {
             {APPLICATION_PIPELINE.map((status) => {
               const items = byStatus(status);
               const meta = APPLICATION_STATUS_META[status];
+              const isOver = overStatus === status;
               return (
-                <div key={status} className="w-72 shrink-0">
+                <div
+                  key={status}
+                  className="w-72 shrink-0"
+                  onDragOver={(e) => {
+                    if (!dragId) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    setOverStatus(status);
+                  }}
+                  onDragLeave={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                      setOverStatus(null);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (dragId) moveTo(dragId, status);
+                    setOverStatus(null);
+                    setDragId(null);
+                  }}
+                >
                   <div className="mb-3 flex items-center justify-between px-1">
                     <span className="text-sm font-semibold">{meta?.label ?? status}</span>
                     <Badge tone="neutral">{items.length}</Badge>
                   </div>
-                  <div className="space-y-2.5">
+                  <div
+                    className={cn(
+                      "min-h-[120px] space-y-2.5 rounded-xl border border-transparent p-1 transition-colors",
+                      isOver && "border-dashed border-electric/50 bg-electric/5"
+                    )}
+                  >
                     {isLoading ? (
                       <Skeleton className="h-24 w-full" />
                     ) : items.length === 0 ? (
                       <div className="rounded-xl border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
-                        Empty
+                        {dragId ? "Drop here" : "Empty"}
                       </div>
                     ) : (
                       items.map((c) => (
@@ -107,7 +142,13 @@ export default function JobDetailPage() {
                           key={c.application_id}
                           c={c}
                           active={selectedId === c.application_id}
+                          dragging={dragId === c.application_id}
                           onClick={() => setSelectedId(c.application_id)}
+                          onDragStart={() => setDragId(c.application_id)}
+                          onDragEnd={() => {
+                            setDragId(null);
+                            setOverStatus(null);
+                          }}
                         />
                       ))
                     )}
@@ -194,18 +235,32 @@ export default function JobDetailPage() {
 function CandidateMiniCard({
   c,
   active,
+  dragging,
   onClick,
+  onDragStart,
+  onDragEnd,
 }: {
   c: RecruiterCandidateListItem;
   active: boolean;
+  dragging: boolean;
   onClick: () => void;
+  onDragStart: () => void;
+  onDragEnd: () => void;
 }) {
   return (
     <button
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", c.application_id);
+        onDragStart();
+      }}
+      onDragEnd={onDragEnd}
       onClick={onClick}
       className={cn(
-        "w-full rounded-xl border bg-card/60 p-3.5 text-left transition-all hover:border-electric/40",
-        active ? "border-electric/60 shadow-glow" : "border-border/60"
+        "w-full cursor-grab rounded-xl border bg-card/60 p-3.5 text-left transition-all hover:border-electric/40 active:cursor-grabbing",
+        active ? "border-electric/60 shadow-glow" : "border-border/60",
+        dragging && "opacity-50"
       )}
     >
       <div className="flex items-center justify-between">

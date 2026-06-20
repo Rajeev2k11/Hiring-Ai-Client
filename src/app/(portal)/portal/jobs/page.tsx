@@ -5,11 +5,8 @@ import { ArrowRight, Briefcase, MapPin } from "lucide-react";
 
 import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
-import { ScoreRing } from "@/components/shared/ScoreRing";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePortalJobs } from "@/hooks/usePortal";
-import { hashUnit } from "@/lib/utils";
 
 export default function PortalJobsPage() {
   const { data: jobs, isLoading } = usePortalJobs();
@@ -24,33 +21,26 @@ export default function PortalJobsPage() {
         ) : !jobs || jobs.length === 0 ? (
           <EmptyState icon={Briefcase} title="No open roles right now" description="Check back soon — new roles are added often." className="sm:col-span-2" />
         ) : (
-          jobs.map((j) => {
-            const score = 72 + Math.round(hashUnit(j.id) * 26);
-            return (
-              <Link
-                key={j.id}
-                href={`/portal/jobs/${j.id}`}
-                className="group flex flex-col rounded-2xl border border-border/70 bg-card/40 p-6 transition-all hover:-translate-y-1 hover:border-electric/40 hover:bg-card/60"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-display text-lg font-semibold">{j.title}</h3>
-                    <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <MapPin className="size-3.5" /> {j.location ?? "Remote"} · {j.department ?? "—"}
-                    </p>
-                  </div>
-                  <ScoreRing score={score} size={48} />
-                </div>
-                <p className="mt-3 line-clamp-2 flex-1 text-sm text-muted-foreground">{j.description}</p>
-                <div className="mt-4 flex items-center justify-between">
-                  <Badge tone="electric">{score}% match</Badge>
-                  <span className="inline-flex items-center gap-1 text-sm font-medium text-electric-soft">
-                    View role <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-                  </span>
-                </div>
-              </Link>
-            );
-          })
+          jobs.map((j) => (
+            <Link
+              key={j.id}
+              href={`/portal/jobs/${j.id}`}
+              className="group flex flex-col rounded-2xl border border-border/70 bg-card/40 p-6 transition-all hover:-translate-y-1 hover:border-electric/40 hover:bg-card/60"
+            >
+              <div>
+                <h3 className="font-display text-lg font-semibold">{j.title}</h3>
+                <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <MapPin className="size-3.5" /> {j.location ?? "Remote"} · {j.department ?? "—"}
+                </p>
+              </div>
+              <p className="mt-3 line-clamp-3 flex-1 text-sm text-muted-foreground">{j.description}</p>
+              <div className="mt-4 flex items-center justify-end">
+                <span className="inline-flex items-center gap-1 text-sm font-medium text-electric-soft">
+                  View role <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </div>
+            </Link>
+          ))
         )}
       </div>
     </div>

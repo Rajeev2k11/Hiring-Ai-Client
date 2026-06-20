@@ -102,7 +102,7 @@ export function AppTopbar({
         </Sheet>
 
         {/* Search */}
-        <div className="relative max-w-xl flex-1">
+        <div className="relative max-w-md flex-1">
           <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
             placeholder={searchPlaceholder}
@@ -110,7 +110,8 @@ export function AppTopbar({
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Actions — pinned to the far right */}
+        <div className="ml-auto flex items-center gap-2">
           <AssistantDrawer />
 
           {/* Notifications */}

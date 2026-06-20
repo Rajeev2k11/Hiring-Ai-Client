@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { candidatesService } from "@/services";
 import { queryKeys } from "@/lib/query-keys";
+import { LIVE } from "@/lib/query-client";
 
 interface Filters {
   status?: string | null;
@@ -17,6 +18,7 @@ export function useCandidates(filters: Filters = {}) {
       job_id: filters.job_id ?? undefined,
     }),
     queryFn: () => candidatesService.list(filters),
+    ...LIVE,
   });
 }
 
@@ -25,6 +27,7 @@ export function useCandidate(applicationId: string, enabled = true) {
     queryKey: queryKeys.candidates.detail(applicationId),
     queryFn: () => candidatesService.detail(applicationId),
     enabled: enabled && Boolean(applicationId),
+    ...LIVE,
   });
 }
 

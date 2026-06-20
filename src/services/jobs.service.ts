@@ -1,7 +1,4 @@
-import { apiClient } from "@/lib/api-client";
-import { clone, nowISO, resolve, uid } from "./api-helpers";
-import { APPLICATIONS, COMPANY, JOBS } from "./mock/seed";
-import { JobStatus } from "@/types";
+import { api } from "@/lib/api-fetch";
 import type {
   DashboardStats,
   Job,
@@ -10,107 +7,48 @@ import type {
   JobUpdateInput,
 } from "@/types";
 
-function toListItem(job: Job): JobListItem {
-  const applicant_count = APPLICATIONS.filter((a) => a.job_id === job.id).length;
-  return {
-    id: job.id,
-    title: job.title,
-    department: job.department,
-    location: job.location,
-    status: job.status,
-    applicant_count,
-    created_at: job.created_at,
-    updated_at: job.updated_at,
-    last_activity_at: job.updated_at,
-  };
-}
-
+/**
+ * Jobs — real backend integration via the authenticated BFF proxy.
+ *
+ * Company (recruiter) surfaces are intentionally scoped to the logged-in
+ * company:
+ *   - the jobs list + stats come from /recruiter/dashboard/* (only this
+ *     company's roles), NOT the public GET /jobs (that lists every company's
+ *     jobs and is for the candidate portal);
+ *   - creation goes through POST /recruiter/jobs (company derived from token),
+ *     NOT the public POST /jobs (demo-company fallback).
+ * Detail + update reuse the shared /jobs/{id} routes.
+ */
 export const jobsService = {
+  /** Company's own jobs enriched with applicant count — /recruiter/dashboard/jobs. */
   listForDashboard(status?: string | null): Promise<JobListItem[]> {
-    return resolve(
-      () =>
-        JOBS.filter((j) => (status ? j.status === status : true))
-          .map(toListItem)
-          .sort((a, b) => +new Date(b.last_activity_at) - +new Date(a.last_activity_at)),
-      async () =>
-        (
-          await apiClient.get("/recruiter/dashboard/jobs", {
-            params: { status: status || undefined },
-          })
-        ).data
-    );
+    const q = status ? `?status=${encodeURIComponent(status)}` : "";
+    return api.get<JobListItem[]>(`recruiter/dashboard/jobs${q}`);
   },
 
+  /** Summary stat cards for the company — /recruiter/dashboard/stats. */
   dashboardStats(): Promise<DashboardStats> {
-    return resolve(
-      () => {
-        const counts = {
-          all: JOBS.length,
-          open: JOBS.filter((j) => j.status === JobStatus.OPEN).length,
-          draft: JOBS.filter((j) => j.status === JobStatus.DRAFT).length,
-          closed: JOBS.filter((j) => j.status === JobStatus.CLOSED).length,
-        };
-        return {
-          total_openings: counts.open,
-          total_applicants: APPLICATIONS.length,
-          draft_roles: counts.draft,
-          total_roles: counts.all,
-          status_counts: counts,
-        };
-      },
-      async () => (await apiClient.get("/recruiter/dashboard/stats")).data
-    );
+    return api.get<DashboardStats>("recruiter/dashboard/stats");
   },
 
+  /** All open jobs (candidate-facing listing) — public GET /jobs. */
   list(status?: string | null): Promise<Job[]> {
-    return resolve(
-      () => clone(JOBS.filter((j) => (status ? j.status === status : true))),
-      async () =>
-        (await apiClient.get("/jobs", { params: { status: status || undefined } })).data
-    );
+    const q = status ? `?status=${encodeURIComponent(status)}` : "";
+    return api.get<Job[]>(`jobs${q}`);
   },
 
+  /** Single job by id — GET /jobs/{id}. */
   get(id: string): Promise<Job> {
-    return resolve(
-      () => {
-        const found = JOBS.find((j) => j.id === id);
-        if (!found) throw { status: 404, message: "Job not found" };
-        return clone(found);
-      },
-      async () => (await apiClient.get(`/jobs/${id}`)).data
-    );
+    return api.get<Job>(`jobs/${id}`);
   },
 
+  /** Create a job for the recruiter's company — POST /recruiter/jobs. */
   create(payload: JobCreateInput): Promise<Job> {
-    return resolve(
-      () => {
-        const job: Job = {
-          id: uid("job"),
-          company_id: COMPANY.id,
-          title: payload.title,
-          department: payload.department ?? null,
-          location: payload.location ?? null,
-          description: payload.description,
-          status: payload.status ?? JobStatus.DRAFT,
-          created_at: nowISO(),
-          updated_at: nowISO(),
-        };
-        JOBS.unshift(job);
-        return clone(job);
-      },
-      async () => (await apiClient.post("/recruiter/jobs", payload)).data
-    );
+    return api.post<Job>("recruiter/jobs", payload);
   },
 
+  /** Update a job — PATCH /jobs/{id}. */
   update(id: string, payload: JobUpdateInput): Promise<Job> {
-    return resolve(
-      () => {
-        const job = JOBS.find((j) => j.id === id);
-        if (!job) throw { status: 404, message: "Job not found" };
-        Object.assign(job, payload, { updated_at: nowISO() });
-        return clone(job);
-      },
-      async () => (await apiClient.patch(`/jobs/${id}`, payload)).data
-    );
+    return api.patch<Job>(`jobs/${id}`, payload);
   },
 };

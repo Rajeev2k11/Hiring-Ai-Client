@@ -85,9 +85,9 @@ export function AuthShell({
   return (
     <div className="relative grid min-h-screen lg:grid-cols-2">
       {/* Brand panel */}
-      <div className="relative hidden flex-col justify-between overflow-hidden border-r border-border/60 bg-card/30 p-12 lg:flex">
+      <div className="relative hidden flex-col items-center justify-between overflow-hidden border-r border-border/60 bg-card/30 p-12 lg:flex">
         <AuroraBackground intensity={variant === "candidate" ? "subtle" : "normal"} />
-        <div className="relative flex items-center gap-3">
+        <div className="relative flex items-center gap-3 self-start">
           <Logo />
           <span className={cn("inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-secondary/50 px-2.5 py-1 text-[11px] font-medium", c.accent)}>
             <c.badgeIcon className="size-3" />

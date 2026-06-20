@@ -40,7 +40,7 @@ export default function PortalApplicationsPage() {
                   <StatusBadge value={a.status} meta={APPLICATION_STATUS_META} />
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {a.company} · {a.location ?? "Remote"} · applied {formatDate(a.applied_at)}
+                  {a.location ?? "Remote"} · applied {formatDate(a.applied_at)}
                 </p>
                 {a.next_step && (
                   <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-electric/10 px-2.5 py-1 text-xs font-medium text-electric-soft">
