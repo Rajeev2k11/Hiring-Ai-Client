@@ -19,16 +19,20 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { useCandidate, useCandidates } from "@/hooks/useCandidates";
-import { useCreateInterview } from "@/hooks/useInterviews";
+import { useCreateInterview, useInterviewAvailability } from "@/hooks/useInterviews";
+import { useGoogleStatus } from "@/hooks/useIntegrations";
 import { useTeam } from "@/hooks/useTeam";
 import { InterviewPlatform } from "@/types";
 import { cn, initials } from "@/lib/utils";
+import { formatTime } from "@/lib/format";
+import { APPLICATION_STATUS_META } from "@/constants/status";
 
-const SLOTS = [
-  { label: "09:00 AM — 10:00 AM", hour: 9, note: "4 interviewers available", optimal: false },
-  { label: "11:30 AM — 12:30 PM", hour: 11.5, note: "High interviewer overlap", optimal: true },
-  { label: "02:00 PM — 03:00 PM", hour: 14, note: "3 interviewers available", optimal: false },
-  { label: "03:30 PM — 04:30 PM", hour: 15.5, note: "Fully available", optimal: false },
+const DURATION_MINUTES = 60;
+const TIMEZONE = "America/New_York";
+
+const PLATFORM_OPTIONS = [
+  { value: InterviewPlatform.ZOOM, label: "Zoom" },
+  { value: InterviewPlatform.GOOGLE_MEET, label: "Google Meet" },
 ];
 
 const STAGES = ["Technical Screen", "Technical Deep Dive", "System Design", "Hiring Manager", "Final Panel"];
@@ -51,7 +55,15 @@ function ScheduleInner() {
   const [appId, setAppId] = useState<string | null>(paramApp);
   const { data: candidate } = useCandidate(appId ?? "", Boolean(appId));
   const { data: team } = useTeam();
+  const { data: googleStatus } = useGoogleStatus();
   const create = useCreateInterview();
+
+  const googleConnected = googleStatus?.connected ?? false;
+  const [platformChoice, setPlatformChoice] = useState<string | null>(null);
+  // Default follows the Google connection state until the user picks explicitly.
+  const platform =
+    platformChoice ??
+    (googleConnected ? InterviewPlatform.GOOGLE_MEET : InterviewPlatform.ZOOM);
 
   const [stage, setStage] = useState(STAGES[1]);
   const [month, setMonth] = useState(() => {
@@ -75,21 +87,49 @@ function ScheduleInner() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const togglePanel = (id: string) =>
+  const dateStr = selectedDate
+    ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`
+    : null;
+
+  const {
+    data: availability,
+    isLoading: slotsLoading,
+    isError: slotsError,
+    error: slotsErr,
+  } = useInterviewAvailability(
+    {
+      date: dateStr,
+      interviewer_ids: panel,
+      duration_minutes: DURATION_MINUTES,
+      timezone: TIMEZONE,
+    },
+    Boolean(dateStr)
+  );
+
+  const slots = availability?.slots ?? [];
+
+  const selectDate = (d: Date) => {
+    setSelectedDate(d);
+    setSlot(null);
+  };
+
+  const togglePanel = (id: string) => {
     setPanel((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+    setSlot(null);
+  };
 
   const schedule = async () => {
-    if (!appId) return toast.error("Select a candidate first.");
-    if (!selectedDate || slot === null) return toast.error("Pick a date and time slot.");
-    const dt = new Date(selectedDate);
-    dt.setHours(Math.floor(SLOTS[slot].hour), (SLOTS[slot].hour % 1) * 60, 0, 0);
+    if (!appId) return toast.error("Select an applicant first.");
+    if (!selectedDate) return toast.error("Pick a date first.");
+    if (slot === null || !slots[slot]) return toast.error("Pick a time slot.");
+    const chosen = slots[slot];
     await create.mutateAsync({
       application_id: appId,
       stage,
-      scheduled_at: dt.toISOString(),
-      duration_minutes: 60,
-      platform: InterviewPlatform.ZOOM,
-      timezone: "America/New_York",
+      scheduled_at: chosen.start_at,
+      duration_minutes: DURATION_MINUTES,
+      platform,
+      timezone: TIMEZONE,
       interviewer_ids: panel,
       auto_generate_meeting: true,
     });
@@ -110,7 +150,7 @@ function ScheduleInner() {
         <div className="space-y-5">
           {!appId ? (
             <div className="rounded-2xl border border-border/70 bg-card/40 p-5">
-              <p className="text-sm font-medium">Select a candidate</p>
+              <p className="text-sm font-medium">Select an applicant</p>
               <select
                 onChange={(e) => setAppId(e.target.value || null)}
                 defaultValue=""
@@ -119,7 +159,8 @@ function ScheduleInner() {
                 <option value="">Choose…</option>
                 {(allCandidates ?? []).map((c) => (
                   <option key={c.application_id} value={c.application_id} className="bg-popover">
-                    {c.candidate_name} — {c.job_title}
+                    {c.candidate_name} — {c.job_title} ·{" "}
+                    {APPLICATION_STATUS_META[c.status]?.label ?? c.status}
                   </option>
                 ))}
               </select>
@@ -201,7 +242,7 @@ function ScheduleInner() {
                 <button
                   key={i}
                   disabled={disabled}
-                  onClick={() => setSelectedDate(d)}
+                  onClick={() => selectDate(d)}
                   className={cn(
                     "aspect-square rounded-lg text-sm transition-colors",
                     disabled && "text-muted-foreground/30",
@@ -223,30 +264,85 @@ function ScheduleInner() {
             {selectedDate ? selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }) : "Pick a date"}
           </p>
           <div className="mt-4 space-y-2.5">
-            {SLOTS.map((s, i) => (
-              <button
-                key={i}
-                onClick={() => setSlot(i)}
-                className={cn(
-                  "flex w-full items-center justify-between rounded-xl border p-3.5 text-left transition-colors",
-                  slot === i ? "border-electric/60 bg-electric/10" : "border-border/60 bg-secondary/30 hover:border-electric/40"
-                )}
-              >
-                <div>
-                  <p className="text-sm font-medium">{s.label}</p>
-                  <p className={cn("text-xs", s.optimal ? "text-electric-soft" : "text-muted-foreground")}>
-                    {s.optimal && "✦ "}{s.note}
-                  </p>
-                </div>
-                {slot === i && <CheckCircle2 className="size-5 text-electric-soft" />}
-              </button>
-            ))}
+            {!selectedDate ? (
+              <div className="rounded-xl border border-dashed border-border/60 bg-secondary/20 p-6 text-center text-xs text-muted-foreground">
+                Select a date to see available time slots.
+              </div>
+            ) : slotsLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-[68px] w-full rounded-xl" />
+              ))
+            ) : slotsError ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-center text-xs text-destructive">
+                {(slotsErr as { message?: string })?.message ??
+                  "Couldn't load availability."}
+              </div>
+            ) : slots.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border/60 bg-secondary/20 p-6 text-center text-xs text-muted-foreground">
+                No available slots for this day. Try another date or adjust the panel.
+              </div>
+            ) : (
+              slots.map((s, i) => {
+                const fullyAvailable =
+                  s.total_interviewers > 0 &&
+                  s.available_count === s.total_interviewers;
+                const note = s.is_optimal
+                  ? "High interviewer overlap"
+                  : fullyAvailable
+                  ? "Fully available"
+                  : `${s.available_count} of ${s.total_interviewers} interviewer${s.total_interviewers === 1 ? "" : "s"} available`;
+                return (
+                  <button
+                    key={s.start_at}
+                    onClick={() => setSlot(i)}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-xl border p-3.5 text-left transition-colors",
+                      slot === i ? "border-electric/60 bg-electric/10" : "border-border/60 bg-secondary/30 hover:border-electric/40"
+                    )}
+                  >
+                    <div>
+                      <p className="text-sm font-medium">
+                        {formatTime(s.start_at)} — {formatTime(s.end_at)}
+                      </p>
+                      <p className={cn("text-xs", s.is_optimal ? "text-electric-soft" : "text-muted-foreground")}>
+                        {s.is_optimal && "✦ "}{note}
+                      </p>
+                    </div>
+                    {slot === i && <CheckCircle2 className="size-5 text-electric-soft" />}
+                  </button>
+                );
+              })
+            )}
           </div>
 
-          <div className="mt-5 flex items-center gap-2 rounded-xl border border-border/60 bg-secondary/30 p-3 text-sm">
-            <Video className="size-4 text-electric-soft" />
-            <span>Zoom Meeting</span>
-            <span className="text-xs text-muted-foreground">(auto-generated)</span>
+          <div className="mt-5 space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Meeting platform
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {PLATFORM_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setPlatformChoice(opt.value)}
+                  className={cn(
+                    "flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-medium transition-colors",
+                    platform === opt.value
+                      ? "border-electric/60 bg-electric/10 text-foreground"
+                      : "border-border/60 bg-secondary/30 text-muted-foreground hover:border-electric/40 hover:text-foreground"
+                  )}
+                >
+                  <Video className="size-4 text-electric-soft" />
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {platform === InterviewPlatform.GOOGLE_MEET
+                ? googleConnected
+                  ? "A Google Meet link will be generated automatically."
+                  : "Connect a Google account in Settings to generate the Meet link."
+                : "A Zoom meeting link will be generated automatically."}
+            </p>
           </div>
 
           <Button variant="brand" className="mt-5 w-full" onClick={schedule} disabled={create.isPending}>

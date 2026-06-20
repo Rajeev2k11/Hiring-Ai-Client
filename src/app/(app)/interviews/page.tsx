@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CalendarCheck, CalendarPlus, Video } from "lucide-react";
+import { CalendarCheck, CalendarPlus, Video, AlertTriangle } from "lucide-react";
 
 import { PageHeader } from "@/components/app/PageHeader";
 import { StatusBadge } from "@/components/app/StatusBadge";
@@ -24,7 +24,8 @@ const TABS = [
 
 export default function InterviewsPage() {
   const [tab, setTab] = useState<string | null>(null);
-  const { data: interviews, isLoading } = useInterviews(tab);
+  const { data: interviews, isLoading, isError, error, refetch, isFetching } =
+    useInterviews(tab);
 
   return (
     <div className="mx-auto max-w-[1280px] px-5 py-8 lg:px-8">
@@ -58,6 +59,20 @@ export default function InterviewsPage() {
       <div className="mt-4 space-y-2.5">
         {isLoading ? (
           Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)
+        ) : isError ? (
+          <EmptyState
+            icon={AlertTriangle}
+            title="Couldn't load interviews"
+            description={
+              (error as { message?: string })?.message ??
+              "Something went wrong while fetching interviews."
+            }
+            action={
+              <Button variant="brand" onClick={() => refetch()} disabled={isFetching}>
+                {isFetching ? "Retrying…" : "Try again"}
+              </Button>
+            }
+          />
         ) : !interviews || interviews.length === 0 ? (
           <EmptyState
             icon={CalendarCheck}

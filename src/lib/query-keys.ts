@@ -47,6 +47,9 @@ export const queryKeys = {
     profile: ["settings", "profile"] as const,
     sessions: ["settings", "sessions"] as const,
   },
+  integrations: {
+    google: ["integrations", "google"] as const,
+  },
   team: {
     members: ["team", "members"] as const,
   },

@@ -6,6 +6,7 @@ export * from "./useInterviews";
 export * from "./useSourcing";
 export * from "./useAnalytics";
 export * from "./useSettings";
+export * from "./useIntegrations";
 export * from "./useAi";
 export * from "./useTeam";
 export * from "./useMounted";

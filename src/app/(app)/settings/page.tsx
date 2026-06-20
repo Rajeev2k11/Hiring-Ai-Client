@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Monitor, ShieldAlert, Trash2 } from "lucide-react";
+import { Loader2, Monitor, ShieldAlert, Trash2, CheckCircle2, Link2, Unplug, RefreshCw, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/PageHeader";
@@ -25,7 +25,13 @@ import {
   useDeleteAccount,
 } from "@/hooks/useSettings";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  useGoogleStatus,
+  useConnectGoogle,
+  useDisconnectGoogle,
+} from "@/hooks/useIntegrations";
 import { formatRelative } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -69,6 +75,7 @@ export default function SettingsPage() {
         <TabsList className="w-full overflow-x-auto">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="integrations">Integrations</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="danger">Danger Zone</TabsTrigger>
         </TabsList>
@@ -132,6 +139,11 @@ export default function SettingsPage() {
               />
             </div>
           </Panel>
+        </TabsContent>
+
+        {/* Integrations */}
+        <TabsContent value="integrations" className="mt-6">
+          <GoogleIntegrationPanel />
         </TabsContent>
 
         {/* Security */}
@@ -268,5 +280,122 @@ function ToggleRow({
       </div>
       <Switch checked={checked} onCheckedChange={onChange} />
     </div>
+  );
+}
+
+function GoogleIntegrationPanel() {
+  const { data: status, isLoading, isFetching, refetch } = useGoogleStatus();
+  const connect = useConnectGoogle();
+  const disconnect = useDisconnectGoogle();
+
+  return (
+    <Panel
+      title="Google Calendar & Meet"
+      action={
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => refetch()}
+          disabled={isFetching}
+        >
+          <RefreshCw className={isFetching ? "size-4 animate-spin" : "size-4"} />
+          Refresh
+        </Button>
+      }
+    >
+      <p className="text-sm text-muted-foreground">
+        Connect a Google account to auto-generate Google Meet links and place
+        interview events on its calendar when scheduling.
+      </p>
+
+      {isLoading || !status ? (
+        <Skeleton className="mt-4 h-20 w-full rounded-xl" />
+      ) : !status.oauth_configured ? (
+        <div className="mt-4 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-400" />
+          <div className="text-sm">
+            <p className="font-medium text-amber-300">OAuth not configured</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              The server is missing its Google OAuth client credentials. Add
+              GOOGLE_OAUTH_CLIENT_ID / SECRET / REDIRECT_URI to the backend
+              environment and restart it.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4 flex flex-col gap-4 rounded-xl border border-border/50 bg-secondary/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <span
+              className={cn(
+                "grid h-10 w-10 place-items-center rounded-lg border",
+                status.connected
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                  : "border-border/60 bg-card text-muted-foreground"
+              )}
+            >
+              {status.connected ? (
+                <CheckCircle2 className="size-5" />
+              ) : (
+                <Link2 className="size-5" />
+              )}
+            </span>
+            <div>
+              <p className="flex items-center gap-2 text-sm font-medium">
+                {status.connected ? "Connected" : "Not connected"}
+                {status.connected && <Badge tone="success">Active</Badge>}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {status.connected && status.connected_email
+                  ? status.connected_email
+                  : "No Google account linked yet."}
+              </p>
+            </div>
+          </div>
+
+          {status.connected ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={disconnect.isPending}
+              onClick={() =>
+                disconnect.mutate(undefined, {
+                  onSuccess: () => toast.success("Google account disconnected"),
+                  onError: (e) => toast.error((e as Error).message),
+                })
+              }
+            >
+              {disconnect.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Unplug className="size-4" />
+              )}
+              Disconnect
+            </Button>
+          ) : (
+            <Button
+              variant="brand"
+              size="sm"
+              disabled={connect.isPending}
+              onClick={() =>
+                connect.mutate(undefined, {
+                  onSuccess: () =>
+                    toast.success(
+                      "Opened Google sign-in in a new tab. Approve access, then return here."
+                    ),
+                  onError: (e) => toast.error((e as Error).message),
+                })
+              }
+            >
+              {connect.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Link2 className="size-4" />
+              )}
+              Connect Google
+            </Button>
+          )}
+        </div>
+      )}
+    </Panel>
   );
 }

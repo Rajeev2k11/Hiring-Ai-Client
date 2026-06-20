@@ -10,3 +10,4 @@ export * from "./sourcing";
 export * from "./analytics";
 export * from "./ai";
 export * from "./settings";
+export * from "./integrations";

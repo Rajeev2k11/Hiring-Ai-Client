@@ -3,6 +3,7 @@ import { clone, nowISO, resolve, uid } from "./api-helpers";
 import { APPLICATIONS, CANDIDATES, INTERVIEWS, JOBS, TEAM } from "./mock/seed";
 import { InterviewStatus } from "@/types";
 import type {
+  AvailabilityResponse,
   Interview,
   InterviewCreateInput,
   InterviewUpdateInput,
@@ -10,21 +11,55 @@ import type {
 } from "@/types";
 
 export const interviewsService = {
-  list(status?: string | null): Promise<Interview[]> {
-    return resolve(
-      () =>
-        clone(
-          INTERVIEWS.filter((i) => (status ? i.status === status : true)).sort(
-            (a, b) => +new Date(a.scheduled_at) - +new Date(b.scheduled_at)
-          )
-        ),
-      async () =>
-        (
-          await apiClient.get("/recruiter/interviews", {
-            params: { status: status || undefined },
-          })
-        ).data
+  /**
+   * Live integration via the authenticated BFF proxy
+   * (`/api/proxy/recruiter/interviews` → FastAPI `GET /api/v1/recruiter/interviews`).
+   * Using the proxy means the JWT stays in the httpOnly cookie — the browser
+   * sends it automatically and the proxy attaches the Bearer token server-side,
+   * so client JS never touches the token. Pass `status`
+   * (SCHEDULED | COMPLETED | CANCELLED) to filter server-side.
+   */
+  async list(status?: string | null): Promise<Interview[]> {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+    const res = await fetch(`/api/proxy/recruiter/interviews${qs}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { message?: string };
+      throw new Error(data.message ?? "Failed to load interviews");
+    }
+    return res.json();
+  },
+
+  /**
+   * Live integration via the authenticated BFF proxy
+   * (`/api/proxy/recruiter/interviews/availability` →
+   * FastAPI `GET /api/v1/recruiter/interviews/availability`).
+   * `date` (YYYY-MM-DD) is required; `interviewer_ids` is repeated per id.
+   */
+  async availability(params: {
+    date: string;
+    interviewer_ids?: string[];
+    duration_minutes?: number;
+    timezone?: string;
+  }): Promise<AvailabilityResponse> {
+    const qs = new URLSearchParams();
+    qs.set("date", params.date);
+    if (params.duration_minutes)
+      qs.set("duration_minutes", String(params.duration_minutes));
+    if (params.timezone) qs.set("timezone", params.timezone);
+    (params.interviewer_ids ?? []).forEach((id) =>
+      qs.append("interviewer_ids", id)
     );
+    const res = await fetch(
+      `/api/proxy/recruiter/interviews/availability?${qs.toString()}`,
+      { cache: "no-store" }
+    );
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { message?: string };
+      throw new Error(data.message ?? "Failed to load availability");
+    }
+    return res.json();
   },
 
   get(id: string): Promise<Interview> {

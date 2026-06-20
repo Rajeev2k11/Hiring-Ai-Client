@@ -18,40 +18,26 @@ interface ListFilters {
 }
 
 export const candidatesService = {
-  list(filters: ListFilters = {}): Promise<RecruiterCandidateListItem[]> {
-    return resolve(
-      () =>
-        APPLICATIONS.filter((a) =>
-          filters.status ? a.status === filters.status : true
-        )
-          .filter((a) => (filters.job_id ? a.job_id === filters.job_id : true))
-          .map((a) => {
-            const cand = CANDIDATES.find((c) => c.id === a.candidate_id)!;
-            const job = JOBS.find((j) => j.id === a.job_id)!;
-            return {
-              application_id: a.id,
-              candidate_id: cand.id,
-              candidate_name: cand.name,
-              candidate_email: cand.email,
-              job_id: job.id,
-              job_title: job.title,
-              status: a.status,
-              match_score: a.match_score,
-              applied_at: a.created_at,
-              updated_at: a.updated_at,
-            };
-          })
-          .sort((a, b) => (b.match_score ?? -1) - (a.match_score ?? -1)),
-      async () =>
-        (
-          await apiClient.get("/recruiter/candidates", {
-            params: {
-              status: filters.status || undefined,
-              job_id: filters.job_id || undefined,
-            },
-          })
-        ).data
-    );
+  /**
+   * Live integration via the authenticated BFF proxy
+   * (`/api/proxy/recruiter/candidates` → FastAPI `GET /api/v1/recruiter/candidates`).
+   * The JWT stays in the httpOnly cookie — the browser sends it automatically
+   * and the proxy attaches the Bearer token server-side. Optional `status` and
+   * `job_id` filters are forwarded as query params.
+   */
+  async list(filters: ListFilters = {}): Promise<RecruiterCandidateListItem[]> {
+    const qs = new URLSearchParams();
+    if (filters.status) qs.set("status", filters.status);
+    if (filters.job_id) qs.set("job_id", filters.job_id);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    const res = await fetch(`/api/proxy/recruiter/candidates${suffix}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { message?: string };
+      throw new Error(data.message ?? "Failed to load candidates");
+    }
+    return res.json();
   },
 
   detail(applicationId: string): Promise<RecruiterCandidateDetail> {

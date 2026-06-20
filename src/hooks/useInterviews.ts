@@ -21,6 +21,37 @@ export function useInterview(id: string, enabled = true) {
   });
 }
 
+/**
+ * Panel availability for a given day. Refetches when the date, panel,
+ * duration, or timezone change. Disabled until a date is provided.
+ */
+export function useInterviewAvailability(
+  params: {
+    date: string | null;
+    interviewer_ids?: string[];
+    duration_minutes?: number;
+    timezone?: string;
+  },
+  enabled = true
+) {
+  return useQuery({
+    queryKey: queryKeys.interviews.availability({
+      date: params.date,
+      interviewer_ids: params.interviewer_ids,
+      duration_minutes: params.duration_minutes,
+      timezone: params.timezone,
+    }),
+    queryFn: () =>
+      interviewsService.availability({
+        date: params.date as string,
+        interviewer_ids: params.interviewer_ids,
+        duration_minutes: params.duration_minutes,
+        timezone: params.timezone,
+      }),
+    enabled: enabled && Boolean(params.date),
+  });
+}
+
 export function useCreateInterview() {
   const qc = useQueryClient();
   return useMutation({
