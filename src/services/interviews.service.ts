@@ -16,12 +16,18 @@ export const interviewsService = {
    * (`/api/proxy/recruiter/interviews` → FastAPI `GET /api/v1/recruiter/interviews`).
    * Using the proxy means the JWT stays in the httpOnly cookie — the browser
    * sends it automatically and the proxy attaches the Bearer token server-side,
-   * so client JS never touches the token. Pass `status`
-   * (SCHEDULED | COMPLETED | CANCELLED) to filter server-side.
+   * so client JS never touches the token. Supports `status`
+   * (SCHEDULED | COMPLETED | CANCELLED) plus `skip`/`limit` pagination.
    */
-  async list(status?: string | null): Promise<Interview[]> {
-    const qs = status ? `?status=${encodeURIComponent(status)}` : "";
-    const res = await fetch(`/api/proxy/recruiter/interviews${qs}`, {
+  async list(
+    params: { status?: string | null; skip?: number; limit?: number } = {}
+  ): Promise<Interview[]> {
+    const qs = new URLSearchParams();
+    if (params.status) qs.set("status", params.status);
+    if (params.skip != null) qs.set("skip", String(params.skip));
+    if (params.limit != null) qs.set("limit", String(params.limit));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    const res = await fetch(`/api/proxy/recruiter/interviews${suffix}`, {
       cache: "no-store",
     });
     if (!res.ok) {
