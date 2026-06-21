@@ -1,9 +1,6 @@
-import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-
 import { AuroraBackground } from "@/components/shared/AuroraBackground";
 import { Reveal } from "@/components/shared/Reveal";
-import { Button } from "@/components/ui/button";
+import { MarketingCtas } from "@/components/marketing/MarketingCtas";
 
 export function CtaSection() {
   return (
@@ -22,15 +19,7 @@ export function CtaSection() {
                 agents. Live in under an hour — no credit card required.
               </p>
               <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-                <Button asChild variant="brand" size="xl">
-                  <Link href="/register">
-                    Start hiring free
-                    <ArrowRight className="size-5" />
-                  </Link>
-                </Button>
-                <Button asChild variant="glass" size="xl">
-                  <Link href="/book-demo">Talk to sales</Link>
-                </Button>
+                <MarketingCtas size="xl" primaryLabel="Start hiring free" secondaryLabel="Talk to sales" />
               </div>
             </div>
           </div>

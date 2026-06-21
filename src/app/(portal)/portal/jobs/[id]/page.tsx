@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { usePortalJob, useMyApplicationForJob } from "@/hooks/usePortal";
-import { useApplyToJob } from "@/hooks/useApplications";
+import { useApplyToJob, useEvaluateApplication } from "@/hooks/useApplications";
 import { useResume, useUploadResume } from "@/hooks/useResume";
 import { useAppSelector } from "@/store/hooks";
 import { APPLICATION_STATUS_META } from "@/constants/status";
@@ -34,6 +34,7 @@ export default function PortalJobDetail() {
 
   const applyMutation = useApplyToJob();
   const uploadResume = useUploadResume();
+  const evaluate = useEvaluateApplication();
 
   // Has this candidate already applied to this job? (+ did they send a résumé?)
   const { data: myApp } = useMyApplicationForJob(id);
@@ -81,6 +82,13 @@ export default function PortalJobDetail() {
 
       if (file) {
         await uploadResume.mutateAsync({ applicationId: application.id, file });
+        // Kick off AI evaluation (best-effort: needs extracted résumé text and a
+        // configured AI key — recruiters can otherwise run it manually later).
+        try {
+          await evaluate.mutateAsync(application.id);
+        } catch {
+          /* non-fatal */
+        }
       }
 
       setApplied(true);

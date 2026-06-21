@@ -1,12 +1,11 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowRight, PlayCircle, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 import { AuroraBackground } from "@/components/shared/AuroraBackground";
 import { HeroVisual } from "@/components/marketing/HeroVisual";
+import { MarketingCtas } from "@/components/marketing/MarketingCtas";
 import { StatCounter } from "@/components/shared/StatCounter";
-import { Button } from "@/components/ui/button";
 import { HERO_STATS } from "@/constants/marketing";
 import { useGsapContext, gsap } from "@/hooks/useGsap";
 
@@ -49,18 +48,7 @@ export function Hero() {
           </p>
 
           <div className="hero-anim mt-8 flex flex-wrap items-center gap-3">
-            <Button asChild variant="brand" size="xl">
-              <Link href="/register">
-                Start hiring free
-                <ArrowRight className="size-5" />
-              </Link>
-            </Button>
-            <Button asChild variant="glass" size="xl">
-              <Link href="/book-demo">
-                <PlayCircle className="size-5" />
-                Book a demo
-              </Link>
-            </Button>
+            <MarketingCtas size="xl" primaryLabel="Start hiring free" secondaryLabel="Book a demo" />
           </div>
 
           <p className="hero-anim mt-4 text-sm text-muted-foreground">

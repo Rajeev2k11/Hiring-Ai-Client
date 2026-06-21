@@ -1,5 +1,6 @@
 import { api } from "@/lib/api-fetch";
 import type {
+  AiEvaluation,
   Application,
   ApplicationCreateInput,
   ApplicationDetail,
@@ -40,5 +41,15 @@ export const applicationsService = {
     return api.patch<Application>(`applications/${applicationId}/status`, {
       status,
     });
+  },
+
+  /** Run the AI evaluation (needs a résumé) — POST /applications/{id}/evaluate. */
+  evaluate(applicationId: string): Promise<AiEvaluation> {
+    return api.post<AiEvaluation>(`applications/${applicationId}/evaluate`);
+  },
+
+  /** Read the AI evaluation — GET /applications/{id}/evaluation. */
+  getEvaluation(applicationId: string): Promise<AiEvaluation> {
+    return api.get<AiEvaluation>(`applications/${applicationId}/evaluation`);
   },
 };

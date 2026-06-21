@@ -88,7 +88,7 @@ export default function CreateJobPage() {
       toast.error("Title and description are required.");
       return;
     }
-    const job = await create.mutateAsync({
+    await create.mutateAsync({
       title,
       department: department || null,
       location: location || null,
@@ -96,7 +96,7 @@ export default function CreateJobPage() {
       status,
     });
     toast.success(status === JobStatus.OPEN ? "Job published" : "Draft saved");
-    router.push(status === JobStatus.OPEN ? `/jobs/${job.id}` : "/jobs");
+    router.push("/jobs");
   };
 
   const ASSIST = [

@@ -3,16 +3,28 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, ChevronDown, Menu, X } from "lucide-react";
+import { ArrowRight, ChevronDown, LayoutDashboard, LogOut, Menu, X } from "lucide-react";
 
 import { Logo } from "@/components/shared/Logo";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useAuth, useSession } from "@/hooks/useAuth";
 import { MARKETING_NAV } from "@/constants/brand";
-import { cn } from "@/lib/utils";
+import { cn, initials } from "@/lib/utils";
 
 export function MarketingNav() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Auth-aware header: a signed-in visitor sees their profile + "Go to
+  // Dashboard" instead of the Sign in / Book a demo CTAs.
+  const { data: session } = useSession();
+  const { logout } = useAuth();
+  const authed = Boolean(session?.authenticated);
+  const dashboardHref = session?.actor_type === "candidate" ? "/portal" : "/dashboard";
+  const name = session?.identity?.name ?? "";
+  const email = session?.identity?.email ?? "";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -81,15 +93,59 @@ export function MarketingNav() {
         </nav>
 
         <div className="hidden items-center gap-2 lg:flex">
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/login">Sign in</Link>
-          </Button>
-          <Button asChild variant="brand" size="sm">
-            <Link href="/book-demo">
-              Book a demo
-              <ArrowRight className="size-4" />
-            </Link>
-          </Button>
+          {authed ? (
+            <>
+              <Button asChild variant="brand" size="sm">
+                <Link href={dashboardHref}>
+                  <LayoutDashboard className="size-4" />
+                  Go to Dashboard
+                </Link>
+              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center gap-2 rounded-full pl-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <Avatar className="h-9 w-9">
+                      <AvatarFallback className="bg-plasma/15 text-plasma-soft">
+                        {name ? initials(name) : "··"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-1.5" align="end">
+                  <div className="border-b border-border/60 px-3 py-2.5">
+                    <p className="truncate text-sm font-semibold">{name || "Your account"}</p>
+                    <p className="truncate text-xs text-muted-foreground">{email}</p>
+                  </div>
+                  <div className="py-1">
+                    <Link
+                      href={dashboardHref}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-foreground/80 hover:bg-secondary/60"
+                    >
+                      <LayoutDashboard className="size-4" /> Dashboard
+                    </Link>
+                    <button
+                      onClick={() => logout()}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-red-300 hover:bg-destructive/10"
+                    >
+                      <LogOut className="size-4" /> Log out
+                    </button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </>
+          ) : (
+            <>
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/login">Sign in</Link>
+              </Button>
+              <Button asChild variant="brand" size="sm">
+                <Link href="/book-demo">
+                  Book a demo
+                  <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+            </>
+          )}
         </div>
 
         <button
@@ -122,16 +178,39 @@ export function MarketingNav() {
                 </Link>
               ))}
               <div className="mt-2 grid grid-cols-2 gap-2 border-t border-border/60 pt-3">
-                <Button asChild variant="outline" size="sm">
-                  <Link href="/login" onClick={() => setMobileOpen(false)}>
-                    Sign in
-                  </Link>
-                </Button>
-                <Button asChild variant="brand" size="sm">
-                  <Link href="/book-demo" onClick={() => setMobileOpen(false)}>
-                    Book a demo
-                  </Link>
-                </Button>
+                {authed ? (
+                  <>
+                    <Button asChild variant="brand" size="sm" className="col-span-2">
+                      <Link href={dashboardHref} onClick={() => setMobileOpen(false)}>
+                        <LayoutDashboard className="size-4" /> Go to Dashboard
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="col-span-2"
+                      onClick={() => {
+                        logout();
+                        setMobileOpen(false);
+                      }}
+                    >
+                      <LogOut className="size-4" /> Log out
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button asChild variant="outline" size="sm">
+                      <Link href="/login" onClick={() => setMobileOpen(false)}>
+                        Sign in
+                      </Link>
+                    </Button>
+                    <Button asChild variant="brand" size="sm">
+                      <Link href="/book-demo" onClick={() => setMobileOpen(false)}>
+                        Book a demo
+                      </Link>
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

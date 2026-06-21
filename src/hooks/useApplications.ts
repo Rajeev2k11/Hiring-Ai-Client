@@ -29,6 +29,20 @@ export function useApplication(applicationId: string, enabled = true) {
   });
 }
 
+/** Run the AI evaluation for an application (POST /applications/{id}/evaluate). */
+export function useEvaluateApplication() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (applicationId: string) =>
+      applicationsService.evaluate(applicationId),
+    onSuccess: (_data, applicationId) => {
+      qc.invalidateQueries({ queryKey: queryKeys.candidates.all });
+      qc.invalidateQueries({ queryKey: queryKeys.candidates.detail(applicationId) });
+      qc.invalidateQueries({ queryKey: queryKeys.applications.detail(applicationId) });
+    },
+  });
+}
+
 /** Candidate applies to a job (POST /jobs/{id}/apply). */
 export function useApplyToJob() {
   const qc = useQueryClient();

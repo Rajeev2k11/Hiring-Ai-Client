@@ -10,6 +10,7 @@ import {
   CalendarPlus,
   Check,
   FileText,
+  Loader2,
   Mail,
   MessageSquare,
   Sparkles,
@@ -26,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCandidate, useUpdateApplicationStatus } from "@/hooks/useCandidates";
+import { useEvaluateApplication } from "@/hooks/useApplications";
 import { useInterviews } from "@/hooks/useInterviews";
 import {
   APPLICATION_STATUS_META,
@@ -40,6 +42,13 @@ export default function CandidateProfilePage() {
   const { data: c, isLoading } = useCandidate(applicationId);
   const { data: interviews } = useInterviews();
   const updateStatus = useUpdateApplicationStatus();
+  const evaluate = useEvaluateApplication();
+
+  const runEvaluation = () =>
+    evaluate.mutate(applicationId, {
+      onSuccess: () => toast.success("AI evaluation complete"),
+      onError: (e) => toast.error((e as Error).message || "Evaluation failed"),
+    });
 
   if (isLoading || !c) {
     return (
@@ -206,8 +215,13 @@ export default function CandidateProfilePage() {
             <EmptyState
               icon={Sparkles}
               title="Not evaluated yet"
-              description="Run the Screening Agent to score this candidate against the role."
-              action={<Button variant="brand">Run AI evaluation</Button>}
+              description="Run the AI scorer to evaluate this candidate's résumé against the role."
+              action={
+                <Button variant="brand" onClick={runEvaluation} disabled={evaluate.isPending}>
+                  {evaluate.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                  Run AI evaluation
+                </Button>
+              }
             />
           )}
         </TabsContent>
