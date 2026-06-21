@@ -2,48 +2,95 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Radar, Sparkles, Share2 } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { ArrowLeft, Loader2, MapPin, Pencil, Radar, Share2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/app/StatusBadge";
-import { ScoreRing } from "@/components/shared/ScoreRing";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useJob } from "@/hooks/useJobs";
-import {
-  useCandidates,
-  useCandidate,
-  useUpdateApplicationStatus,
-} from "@/hooks/useCandidates";
-import { APPLICATION_PIPELINE, ApplicationStatus } from "@/types";
-import {
-  APPLICATION_STATUS_META,
-  JOB_STATUS_META,
-  scoreTone,
-} from "@/constants/status";
+import { useJob, useUpdateJob } from "@/hooks/useJobs";
+import { useCandidates, useUpdateApplicationStatus } from "@/hooks/useCandidates";
+import { APPLICATION_PIPELINE, JobStatus } from "@/types";
+import { APPLICATION_STATUS_META, JOB_STATUS_META, scoreTone } from "@/constants/status";
 import { cn, formatScore } from "@/lib/utils";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import type { RecruiterCandidateListItem } from "@/types";
 
+const STATUS_OPTIONS = [JobStatus.OPEN, JobStatus.DRAFT, JobStatus.CLOSED];
+
 export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { data: job, isLoading: jobLoading } = useJob(id);
   const { data: candidates, isLoading } = useCandidates({ job_id: id });
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { data: detail } = useCandidate(selectedId ?? "", Boolean(selectedId));
   const updateStatus = useUpdateApplicationStatus();
+  const updateJob = useUpdateJob();
+
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overStatus, setOverStatus] = useState<string | null>(null);
+
+  // Inline job editing (PATCH /jobs/{id}).
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({
+    title: "",
+    department: "",
+    location: "",
+    description: "",
+    status: JobStatus.DRAFT as string,
+  });
 
   const byStatus = (status: string) =>
     (candidates ?? []).filter((c) => c.status === status);
 
-  const move = (status: string) => {
-    if (!selectedId) return;
+  /** Move a specific application to a stage (drag-and-drop). */
+  const moveTo = (applicationId: string, status: string) => {
+    const card = (candidates ?? []).find((c) => c.application_id === applicationId);
+    if (!card || card.status === status) return;
     updateStatus.mutate(
-      { id: selectedId, status },
+      { id: applicationId, status },
       { onSuccess: () => toast.success(`Moved to ${APPLICATION_STATUS_META[status]?.label ?? status}`) }
     );
+  };
+
+  const startEdit = () => {
+    if (!job) return;
+    setForm({
+      title: job.title,
+      department: job.department ?? "",
+      location: job.location ?? "",
+      description: job.description,
+      status: job.status,
+    });
+    setEditing(true);
+  };
+
+  const saveEdit = async () => {
+    if (!job) return;
+    if (!form.title.trim() || !form.description.trim()) {
+      toast.error("Title and description are required.");
+      return;
+    }
+    try {
+      await updateJob.mutateAsync({
+        id: job.id,
+        payload: {
+          title: form.title,
+          department: form.department || null,
+          location: form.location || null,
+          description: form.description,
+          status: form.status,
+        },
+      });
+      toast.success("Job updated");
+      setEditing(false);
+    } catch (e) {
+      toast.error((e as Error).message || "Could not update job");
+    }
   };
 
   return (
@@ -52,6 +99,7 @@ export default function JobDetailPage() {
         <ArrowLeft className="size-4" /> Back to roles
       </Link>
 
+      {/* Header */}
       <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-electric-soft">
@@ -70,6 +118,11 @@ export default function JobDetailPage() {
         </div>
         <div className="flex items-center gap-2">
           {job && <StatusBadge value={job.status} meta={JOB_STATUS_META} />}
+          {job && !editing && (
+            <Button variant="outline" size="sm" onClick={startEdit}>
+              <Pencil className="size-4" /> Edit
+            </Button>
+          )}
           <Button variant="outline" size="sm">
             <Share2 className="size-4" /> Share
           </Button>
@@ -81,111 +134,137 @@ export default function JobDetailPage() {
         </div>
       </div>
 
-      <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_360px]">
-        {/* Kanban */}
-        <div className="overflow-x-auto pb-2">
-          <div className="flex min-w-max gap-4">
-            {APPLICATION_PIPELINE.map((status) => {
-              const items = byStatus(status);
-              const meta = APPLICATION_STATUS_META[status];
-              return (
-                <div key={status} className="w-72 shrink-0">
-                  <div className="mb-3 flex items-center justify-between px-1">
-                    <span className="text-sm font-semibold">{meta?.label ?? status}</span>
-                    <Badge tone="neutral">{items.length}</Badge>
-                  </div>
-                  <div className="space-y-2.5">
-                    {isLoading ? (
-                      <Skeleton className="h-24 w-full" />
-                    ) : items.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
-                        Empty
-                      </div>
-                    ) : (
-                      items.map((c) => (
-                        <CandidateMiniCard
-                          key={c.application_id}
-                          c={c}
-                          active={selectedId === c.application_id}
-                          onClick={() => setSelectedId(c.application_id)}
-                        />
-                      ))
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Detail panel */}
-        <aside className="xl:sticky xl:top-24 xl:self-start">
-          {!selectedId ? (
-            <div className="rounded-2xl border border-dashed border-border/70 bg-card/30 p-8 text-center">
-              <Sparkles className="mx-auto size-6 text-electric-soft" />
-              <p className="mt-3 text-sm font-medium">Select a candidate</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Click any card to see the AI summary and move them through the pipeline.
-              </p>
-            </div>
-          ) : !detail ? (
-            <Skeleton className="h-96 w-full rounded-2xl" />
-          ) : (
-            <div className="rounded-2xl border border-border/70 bg-card/50 p-5">
-              <div className="flex items-center gap-3">
-                <ScoreRing score={detail.match_score ?? 0} size={56} />
-                <div className="min-w-0">
-                  <p className="truncate font-display text-lg font-semibold">{detail.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{detail.email}</p>
-                </div>
+      {/* Job details (read or edit) */}
+      <div className="mt-6 rounded-2xl border border-border/70 bg-card/40 p-6">
+        {jobLoading || !job ? (
+          <Skeleton className="h-40 w-full" />
+        ) : editing ? (
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="title">Job Title</Label>
+                <Input id="title" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
               </div>
-
-              {detail.ai_evaluation && (
-                <div className="mt-4 rounded-xl border border-electric/20 bg-electric/5 p-4">
-                  <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-electric-soft">
-                    <Sparkles className="size-3.5" /> AI Summary
-                  </p>
-                  <p className="mt-2 text-sm leading-relaxed text-foreground/85">
-                    {detail.ai_evaluation.summary}
-                  </p>
-                </div>
-              )}
-
-              <div className="mt-4">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Move to stage
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {APPLICATION_PIPELINE.filter((s) => s !== detail.status).map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => move(s)}
-                      disabled={updateStatus.isPending}
-                      className="rounded-lg border border-border/60 bg-secondary/30 px-2.5 py-1.5 text-xs font-medium transition-colors hover:border-electric/40 hover:text-foreground disabled:opacity-60"
-                    >
-                      {APPLICATION_STATUS_META[s]?.label ?? s}
-                    </button>
+              <div className="space-y-1.5">
+                <Label htmlFor="dept">Department</Label>
+                <Input id="dept" value={form.department} onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="loc">Location</Label>
+                <Input id="loc" value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="status">Status</Label>
+                <select
+                  id="status"
+                  value={form.status}
+                  onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+                  className="flex h-11 w-full rounded-xl border border-input bg-secondary/40 px-3.5 text-sm outline-none focus-visible:border-electric/60 focus-visible:ring-2 focus-visible:ring-electric/25"
+                >
+                  {STATUS_OPTIONS.map((s) => (
+                    <option key={s} value={s} className="bg-popover">{JOB_STATUS_META[s]?.label ?? s}</option>
                   ))}
-                  {detail.status !== ApplicationStatus.REJECTED && (
-                    <button
-                      onClick={() => move(ApplicationStatus.REJECTED)}
-                      disabled={updateStatus.isPending}
-                      className="col-span-2 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-1.5 text-xs font-medium text-red-300 transition-colors hover:bg-destructive/20 disabled:opacity-60"
-                    >
-                      Reject
-                    </button>
+                </select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="desc">Description</Label>
+              <Textarea id="desc" rows={10} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="brand" onClick={saveEdit} disabled={updateJob.isPending}>
+                {updateJob.isPending ? <Loader2 className="size-4 animate-spin" /> : null} Save changes
+              </Button>
+              <Button variant="ghost" onClick={() => setEditing(false)} disabled={updateJob.isPending}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className="flex flex-wrap gap-2">
+              <Badge tone="neutral">{job.department ?? "No department"}</Badge>
+              <Badge tone="neutral"><MapPin className="mr-1 size-3" /> {job.location ?? "Remote"}</Badge>
+              <StatusBadge value={job.status} meta={JOB_STATUS_META} withDot />
+            </div>
+            <h2 className="mt-5 font-display text-base font-semibold">About the role</h2>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground/85">
+              {job.description}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Pipeline */}
+      <h2 className="mt-8 font-display text-lg font-semibold">Pipeline</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Drag a candidate between stages, or click a card to open their full profile.
+      </p>
+
+      <div className="mt-4 overflow-x-auto pb-2">
+        <div className="flex min-w-max gap-4">
+          {APPLICATION_PIPELINE.map((status) => {
+            const items = byStatus(status);
+            const meta = APPLICATION_STATUS_META[status];
+            const isOver = overStatus === status;
+            return (
+              <div
+                key={status}
+                className="w-72 shrink-0"
+                onDragOver={(e) => {
+                  if (!dragId) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  setOverStatus(status);
+                }}
+                onDragLeave={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    setOverStatus(null);
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (dragId) moveTo(dragId, status);
+                  setOverStatus(null);
+                  setDragId(null);
+                }}
+              >
+                <div className="mb-3 flex items-center justify-between px-1">
+                  <span className="text-sm font-semibold">{meta?.label ?? status}</span>
+                  <Badge tone="neutral">{items.length}</Badge>
+                </div>
+                <div
+                  className={cn(
+                    "min-h-[120px] space-y-2.5 rounded-xl border border-transparent p-1 transition-colors",
+                    isOver && "border-dashed border-electric/50 bg-electric/5"
+                  )}
+                >
+                  {isLoading ? (
+                    <Skeleton className="h-24 w-full" />
+                  ) : items.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
+                      {dragId ? "Drop here" : "Empty"}
+                    </div>
+                  ) : (
+                    items.map((c) => (
+                      <CandidateMiniCard
+                        key={c.application_id}
+                        c={c}
+                        dragging={dragId === c.application_id}
+                        onClick={() => router.push(`/candidates/${c.application_id}`)}
+                        onDragStart={() => setDragId(c.application_id)}
+                        onDragEnd={() => {
+                          setDragId(null);
+                          setOverStatus(null);
+                        }}
+                      />
+                    ))
                   )}
                 </div>
               </div>
-
-              <Button asChild variant="outline" className="mt-4 w-full" size="sm">
-                <Link href={`/candidates/${detail.application_id}`}>
-                  View full profile <ArrowRight className="size-4" />
-                </Link>
-              </Button>
-            </div>
-          )}
-        </aside>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -193,19 +272,30 @@ export default function JobDetailPage() {
 
 function CandidateMiniCard({
   c,
-  active,
+  dragging,
   onClick,
+  onDragStart,
+  onDragEnd,
 }: {
   c: RecruiterCandidateListItem;
-  active: boolean;
+  dragging: boolean;
   onClick: () => void;
+  onDragStart: () => void;
+  onDragEnd: () => void;
 }) {
   return (
     <button
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", c.application_id);
+        onDragStart();
+      }}
+      onDragEnd={onDragEnd}
       onClick={onClick}
       className={cn(
-        "w-full rounded-xl border bg-card/60 p-3.5 text-left transition-all hover:border-electric/40",
-        active ? "border-electric/60 shadow-glow" : "border-border/60"
+        "w-full cursor-grab rounded-xl border border-border/60 bg-card/60 p-3.5 text-left transition-all hover:border-electric/40 active:cursor-grabbing",
+        dragging && "opacity-50"
       )}
     >
       <div className="flex items-center justify-between">

@@ -1,11 +1,10 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
-import { ArrowRight, Check, type LucideIcon } from "lucide-react";
+import { Check, type LucideIcon } from "lucide-react";
 
 import { PageHero } from "@/components/marketing/PageHero";
 import { SectionHeading } from "@/components/shared/SectionHeading";
 import { Reveal } from "@/components/shared/Reveal";
-import { Button } from "@/components/ui/button";
+import { MarketingCtas } from "@/components/marketing/MarketingCtas";
 import { CtaSection } from "@/components/marketing/sections/CtaSection";
 import { ACCENT } from "@/lib/accent";
 import type { Accent } from "@/constants/marketing";
@@ -38,12 +37,7 @@ export function SolutionTemplate({ config }: { config: SolutionConfig }) {
     <>
       <PageHero eyebrow={config.eyebrow} title={config.title} description={config.description}>
         <div className="flex flex-wrap items-center justify-center gap-3">
-          <Button asChild variant="brand" size="lg">
-            <Link href="/register">Start free <ArrowRight className="size-4" /></Link>
-          </Button>
-          <Button asChild variant="glass" size="lg">
-            <Link href="/book-demo">Book a demo</Link>
-          </Button>
+          <MarketingCtas size="lg" primaryLabel="Start free" secondaryLabel="Book a demo" />
         </div>
       </PageHero>
 

@@ -17,8 +17,13 @@ import type { AppNavItem } from "@/constants/navigation";
 /** App-style fixed bottom navigation — mobile only (sidebar takes over on lg+). */
 export function MobileTabBar({ nav }: { nav: AppNavItem[] }) {
   const pathname = usePathname();
-  const isActive = (href: string) =>
-    href === pathname || pathname === href || pathname.startsWith(href + "/");
+  // Only the longest-matching nav href is active, so an index route (e.g.
+  // "/portal") doesn't stay highlighted on a child route ("/portal/jobs").
+  const activeHref = nav
+    .map((item) => item.href)
+    .filter((href) => pathname === href || pathname.startsWith(href + "/"))
+    .sort((a, b) => b.length - a.length)[0];
+  const isActive = (href: string) => href === activeHref;
 
   const showMore = nav.length > 5;
   const primary = showMore ? nav.slice(0, 4) : nav;

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Briefcase, Clock, Plus, Sparkles, Users } from "lucide-react";
+import { ArrowRight, Briefcase, FileText, LayoutGrid, Plus, Users } from "lucide-react";
 
 import { PageHeader } from "@/components/app/PageHeader";
 import { StatCard } from "@/components/app/StatCard";
@@ -60,18 +60,10 @@ export default function JobsPage() {
       />
 
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total Openings" value={stats?.total_openings} icon={Briefcase} accent="electric" delta="+2" hint="from last month" loading={statsLoading} />
-        <StatCard label="Total Applicants" value={stats?.total_applicants} icon={Users} accent="plasma" hint="34 new today" loading={statsLoading} />
-        <StatCard label="Avg. Time to Hire" value="18d" icon={Clock} accent="aurora" delta="-3" hint="days improvement" />
-        <div className="relative overflow-hidden rounded-2xl border border-electric/30 bg-gradient-to-br from-electric/15 to-plasma/10 p-5">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-electric-soft">
-            <Sparkles className="size-4" /> AI Insight
-          </div>
-          <p className="mt-3 text-sm text-foreground/90">
-            The Sr. UX Designer role has high engagement. Recommend closing
-            applications soon.
-          </p>
-        </div>
+        <StatCard label="Total Openings" value={stats?.total_openings} icon={Briefcase} accent="electric" loading={statsLoading} />
+        <StatCard label="Total Applicants" value={stats?.total_applicants} icon={Users} accent="plasma" loading={statsLoading} />
+        <StatCard label="Draft Roles" value={stats?.draft_roles} icon={FileText} accent="aurora" loading={statsLoading} />
+        <StatCard label="Total Roles" value={stats?.total_roles} icon={LayoutGrid} accent="electric" loading={statsLoading} />
       </div>
 
       {/* Filter tabs */}

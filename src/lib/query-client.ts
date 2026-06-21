@@ -1,6 +1,13 @@
 import { QueryClient } from "@tanstack/react-query";
 
-/** App-wide React Query defaults. One factory so server + client agree. */
+/**
+ * App-wide React Query defaults. One factory so server + client agree.
+ *
+ * We deliberately do NOT poll/auto-refetch — cross-client changes are picked up
+ * via the manual "Refresh" button in the top bar (queryClient.invalidateQueries).
+ * Same-client actions stay instant because mutations invalidate their own keys.
+ * (Swap to websockets/SSE for true real-time once the backend supports it.)
+ */
 export function makeQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {

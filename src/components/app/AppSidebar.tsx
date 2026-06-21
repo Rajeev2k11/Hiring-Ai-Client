@@ -36,9 +36,13 @@ export function AppSidebar({
     router.push(logoutHref);
   };
 
-  const isActive = (href: string) =>
-    href === pathname || (href !== "/" && pathname.startsWith(href + "/")) ||
-    (href !== "/dashboard" && href !== "/portal" && pathname.startsWith(href));
+  // The active item is the one whose href is the *longest* prefix of the
+  // current path. This keeps an index route (e.g. "/portal") from staying
+  // active on a child route (e.g. "/portal/jobs") — only the deepest match wins.
+  const activeHref = nav
+    .map((item) => item.href)
+    .filter((href) => pathname === href || pathname.startsWith(href + "/"))
+    .sort((a, b) => b.length - a.length)[0];
 
   return (
     <aside className="sticky top-0 hidden h-screen w-[264px] shrink-0 flex-col border-r border-border/60 bg-card/30 px-4 py-5 lg:flex">
@@ -51,7 +55,7 @@ export function AppSidebar({
 
       <nav className="mt-8 flex-1 space-y-1">
         {nav.map((item) => {
-          const active = isActive(item.href);
+          const active = item.href === activeHref;
           return (
             <Link
               key={item.href}

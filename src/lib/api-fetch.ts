@@ -32,10 +32,27 @@ async function call<T>(method: Method, path: string, body?: unknown): Promise<T>
   return data as T;
 }
 
+/**
+ * Multipart upload (e.g. résumé PDF). The browser sets the multipart
+ * Content-Type + boundary automatically, so we must NOT set it by hand.
+ */
+async function upload<T>(path: string, form: FormData): Promise<T> {
+  const res = await fetch(`/api/proxy/${path}`, { method: "POST", body: form });
+
+  if (res.status === 204) return undefined as T;
+
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(flattenError(data, "Upload failed"));
+  }
+  return data as T;
+}
+
 export const api = {
   get: <T>(path: string) => call<T>("GET", path),
   post: <T>(path: string, body?: unknown) => call<T>("POST", path, body),
   patch: <T>(path: string, body?: unknown) => call<T>("PATCH", path, body),
   put: <T>(path: string, body?: unknown) => call<T>("PUT", path, body),
   del: <T>(path: string, body?: unknown) => call<T>("DELETE", path, body),
+  upload,
 };

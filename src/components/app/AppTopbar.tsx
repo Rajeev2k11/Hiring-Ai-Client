@@ -3,11 +3,12 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
-  History,
   LogOut,
   Menu,
+  RefreshCw,
   Search,
   Settings as SettingsIcon,
   UserRound,
@@ -54,9 +55,16 @@ export function AppTopbar({
   const router = useRouter();
   const mounted = useMounted();
   const dispatch = useAppDispatch();
+  const queryClient = useQueryClient();
+  const isFetching = useIsFetching();
   const { identity, logout } = useAuth();
   const notifications = useAppSelector((s) => s.notifications.items);
   const unread = notifications.filter((n) => !n.read).length;
+
+  /** Manually refetch every active query (replaces background polling). */
+  const refresh = () => {
+    queryClient.invalidateQueries();
+  };
 
   useEffect(() => {
     dispatch(seedNotifications(SEED));
@@ -102,7 +110,7 @@ export function AppTopbar({
         </Sheet>
 
         {/* Search */}
-        <div className="relative max-w-xl flex-1">
+        <div className="relative max-w-md flex-1">
           <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
             placeholder={searchPlaceholder}
@@ -110,7 +118,8 @@ export function AppTopbar({
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Actions — pinned to the far right */}
+        <div className="ml-auto flex items-center gap-2">
           <AssistantDrawer />
 
           {/* Notifications */}
@@ -166,8 +175,14 @@ export function AppTopbar({
             </PopoverContent>
           </Popover>
 
-          <button className="hidden h-9 w-9 place-items-center rounded-lg border border-border/70 bg-secondary/40 text-muted-foreground transition-colors hover:text-foreground sm:grid">
-            <History className="size-4" />
+          {/* Manual refresh — one click refetches all open data */}
+          <button
+            onClick={refresh}
+            title="Refresh data"
+            aria-label="Refresh data"
+            className="grid h-9 w-9 place-items-center rounded-lg border border-border/70 bg-secondary/40 text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <RefreshCw className={cn("size-4", isFetching > 0 && "animate-spin")} />
           </button>
 
           {/* User menu */}

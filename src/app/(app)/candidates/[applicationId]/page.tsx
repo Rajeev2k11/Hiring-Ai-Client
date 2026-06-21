@@ -10,6 +10,7 @@ import {
   CalendarPlus,
   Check,
   FileText,
+  Loader2,
   Mail,
   MessageSquare,
   Sparkles,
@@ -26,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCandidate, useUpdateApplicationStatus } from "@/hooks/useCandidates";
+import { useEvaluateApplication } from "@/hooks/useApplications";
 import { useInterviews } from "@/hooks/useInterviews";
 import {
   APPLICATION_STATUS_META,
@@ -40,6 +42,13 @@ export default function CandidateProfilePage() {
   const { data: c, isLoading } = useCandidate(applicationId);
   const { data: interviews } = useInterviews();
   const updateStatus = useUpdateApplicationStatus();
+  const evaluate = useEvaluateApplication();
+
+  const runEvaluation = () =>
+    evaluate.mutate(applicationId, {
+      onSuccess: () => toast.success("AI evaluation complete"),
+      onError: (e) => toast.error((e as Error).message || "Evaluation failed"),
+    });
 
   if (isLoading || !c) {
     return (
@@ -134,67 +143,29 @@ export default function CandidateProfilePage() {
               )}
             </div>
 
-            <div className="grid gap-6 sm:grid-cols-2">
+            {ev && ev.strengths.length > 0 && (
               <div className="rounded-2xl border border-border/70 bg-card/40 p-5">
                 <h3 className="font-display text-base font-semibold">Top Skills</h3>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {(ev?.strengths.slice(0, 5) ?? ["—"]).map((s, i) => (
+                  {ev.strengths.slice(0, 5).map((s, i) => (
                     <Badge key={i} tone={i % 2 ? "electric" : "neutral"}>{s.split(" ").slice(0, 3).join(" ")}</Badge>
                   ))}
                 </div>
               </div>
-              <div className="rounded-2xl border border-border/70 bg-card/40 p-5">
-                <h3 className="font-display text-base font-semibold">Experience</h3>
-                <ul className="mt-4 space-y-3">
-                  {[
-                    { role: "Senior " + c.job_title, org: "Stripe", years: "2021 — Present" },
-                    { role: c.job_title, org: "Airbnb", years: "2018 — 2021" },
-                  ].map((e) => (
-                    <li key={e.org} className="flex gap-3">
-                      <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-electric" />
-                      <div>
-                        <p className="text-sm font-medium">{e.role}</p>
-                        <p className="text-xs text-muted-foreground">{e.org} · {e.years}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+            )}
           </div>
 
           <div className="space-y-6">
             <div className="rounded-2xl border border-border/70 bg-card/40 p-5">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Metadata</h3>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Details</h3>
               <dl className="mt-4 space-y-3 text-sm">
                 <Meta label="Applied" value={formatDate(c.applied_at)} />
-                <Meta label="Source" value={<Badge tone="info">LinkedIn</Badge>} />
-                <Meta label="Expected Salary" value="$185k – $210k" />
-                <Meta label="Notice Period" value="2 weeks" />
+                <Meta label="Status" value={<StatusBadge value={c.status} meta={APPLICATION_STATUS_META} />} />
+                <Meta label="Role" value={c.job_title} />
                 <Meta label="Email" value={c.email} />
                 {c.phone && <Meta label="Phone" value={c.phone} />}
+                {c.location && <Meta label="Location" value={c.location} />}
               </dl>
-            </div>
-
-            <div className="rounded-2xl border border-border/70 bg-card/40 p-5">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Activity</h3>
-              <ul className="mt-4 space-y-4">
-                {[
-                  { t: "AI Screening completed", d: "2 hours ago", icon: MessageSquare },
-                  { t: "Resume parsed successfully", d: "Yesterday 4:30 PM", icon: FileText },
-                  { t: "Application received", d: formatDate(c.applied_at), icon: BadgeCheck },
-                ].map((a) => (
-                  <li key={a.t} className="flex gap-3">
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border/60 bg-secondary/40 text-electric-soft">
-                      <a.icon className="size-4" />
-                    </span>
-                    <div>
-                      <p className="text-sm font-medium">{a.t}</p>
-                      <p className="text-xs text-muted-foreground">{a.d}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
             </div>
           </div>
         </TabsContent>
@@ -244,8 +215,13 @@ export default function CandidateProfilePage() {
             <EmptyState
               icon={Sparkles}
               title="Not evaluated yet"
-              description="Run the Screening Agent to score this candidate against the role."
-              action={<Button variant="brand">Run AI evaluation</Button>}
+              description="Run the AI scorer to evaluate this candidate's résumé against the role."
+              action={
+                <Button variant="brand" onClick={runEvaluation} disabled={evaluate.isPending}>
+                  {evaluate.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                  Run AI evaluation
+                </Button>
+              }
             />
           )}
         </TabsContent>
