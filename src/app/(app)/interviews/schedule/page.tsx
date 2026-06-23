@@ -8,24 +8,35 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Link2,
   Loader2,
   Send,
   Sparkles,
+  TriangleAlert,
   Video,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { useCandidate, useCandidates } from "@/hooks/useCandidates";
 import { useCreateInterview, useInterviewAvailability } from "@/hooks/useInterviews";
-import { useGoogleStatus } from "@/hooks/useIntegrations";
+import { useGoogleStatus, useConnectGoogle } from "@/hooks/useIntegrations";
 import { useTeam } from "@/hooks/useTeam";
 import { InterviewPlatform } from "@/types";
 import { cn, initials } from "@/lib/utils";
 import { formatTime } from "@/lib/format";
-import { APPLICATION_STATUS_META } from "@/constants/status";
+import { APPLICATION_STATUS_META, PLATFORM_LABELS } from "@/constants/status";
 
 const DURATION_MINUTES = 60;
 const TIMEZONE = "America/New_York";
@@ -37,6 +48,32 @@ const PLATFORM_OPTIONS = [
 
 const STAGES = ["Technical Screen", "Technical Deep Dive", "System Design", "Hiring Manager", "Final Panel"];
 const WD = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+
+/**
+ * Heuristic: did the create fail because the meeting provider account
+ * (Google / Zoom) isn't connected or its OAuth isn't configured?
+ */
+function isAccountConnectionError(message: string): boolean {
+  const m = message.toLowerCase();
+  const mentionsProvider =
+    m.includes("google") ||
+    m.includes("zoom") ||
+    m.includes("calendar") ||
+    m.includes("meet");
+  const mentionsConnect =
+    m.includes("connect") || m.includes("token") || m.includes("credential");
+  return (
+    m.includes("not connected") ||
+    m.includes("no connected") ||
+    m.includes("connect a") ||
+    m.includes("connect your") ||
+    m.includes("not configured") ||
+    m.includes("oauth") ||
+    m.includes("authoriz") ||
+    m.includes("refresh token") ||
+    (mentionsProvider && mentionsConnect)
+  );
+}
 
 export default function SchedulePage() {
   return (
@@ -57,6 +94,14 @@ function ScheduleInner() {
   const { data: team } = useTeam();
   const { data: googleStatus } = useGoogleStatus();
   const create = useCreateInterview();
+  const connectGoogle = useConnectGoogle();
+
+  // Drives the "connect account" popup. Holds the provider that needs
+  // connecting plus an optional precise message from the backend.
+  const [connectState, setConnectState] = useState<{
+    provider: string;
+    message?: string;
+  } | null>(null);
 
   const googleConnected = googleStatus?.connected ?? false;
   const [platformChoice, setPlatformChoice] = useState<string | null>(null);
@@ -122,19 +167,44 @@ function ScheduleInner() {
     if (!appId) return toast.error("Select an applicant first.");
     if (!selectedDate) return toast.error("Pick a date first.");
     if (slot === null || !slots[slot]) return toast.error("Pick a time slot.");
+
+    // Proactive guard: Google Meet needs a connected Google account. We can
+    // verify this client-side (Zoom has no status endpoint, so it's handled
+    // reactively via the backend error below).
+    if (
+      platform === InterviewPlatform.GOOGLE_MEET &&
+      googleStatus &&
+      !googleStatus.connected
+    ) {
+      setConnectState({ provider: InterviewPlatform.GOOGLE_MEET });
+      return;
+    }
+
     const chosen = slots[slot];
-    await create.mutateAsync({
-      application_id: appId,
-      stage,
-      scheduled_at: chosen.start_at,
-      duration_minutes: DURATION_MINUTES,
-      platform,
-      timezone: TIMEZONE,
-      interviewer_ids: panel,
-      auto_generate_meeting: true,
-    });
-    toast.success(`Interview scheduled${candidate ? ` for ${candidate.name}` : ""}`);
-    router.push("/interviews");
+    try {
+      await create.mutateAsync({
+        application_id: appId,
+        stage,
+        scheduled_at: chosen.start_at,
+        duration_minutes: DURATION_MINUTES,
+        platform,
+        timezone: TIMEZONE,
+        interviewer_ids: panel,
+        auto_generate_meeting: true,
+      });
+      toast.success(`Interview scheduled${candidate ? ` for ${candidate.name}` : ""}`);
+      router.push("/interviews");
+    } catch (e) {
+      const message =
+        (e as { message?: string })?.message ?? "Failed to schedule interview.";
+      // If it failed because the meeting account isn't connected, prompt the
+      // user to connect it; otherwise surface the precise backend error.
+      if (isAccountConnectionError(message)) {
+        setConnectState({ provider: platform, message });
+      } else {
+        toast.error(message);
+      }
+    }
   };
 
   return (
@@ -354,6 +424,85 @@ function ScheduleInner() {
           </p>
         </div>
       </div>
+
+      <ConnectAccountDialog
+        state={connectState}
+        onOpenChange={(open) => !open && setConnectState(null)}
+        onConnectGoogle={() =>
+          connectGoogle.mutate(undefined, {
+            onSuccess: () => {
+              toast.success(
+                "Opened Google sign-in in a new tab. Approve access, then schedule again."
+              );
+              setConnectState(null);
+            },
+            onError: (e) => toast.error((e as Error).message),
+          })
+        }
+        connecting={connectGoogle.isPending}
+        onOpenSettings={() => {
+          setConnectState(null);
+          router.push("/settings");
+        }}
+      />
     </div>
+  );
+}
+
+function ConnectAccountDialog({
+  state,
+  onOpenChange,
+  onConnectGoogle,
+  connecting,
+  onOpenSettings,
+}: {
+  state: { provider: string; message?: string } | null;
+  onOpenChange: (open: boolean) => void;
+  onConnectGoogle: () => void;
+  connecting: boolean;
+  onOpenSettings: () => void;
+}) {
+  const isGoogle = state?.provider === InterviewPlatform.GOOGLE_MEET;
+  const accountLabel = isGoogle ? "Google" : "Zoom";
+  const meetingLabel = state ? PLATFORM_LABELS[state.provider] ?? state.provider : "";
+
+  return (
+    <Dialog open={!!state} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <div className="flex items-center gap-2.5">
+            <span className="grid size-9 place-items-center rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400">
+              <TriangleAlert className="size-4" />
+            </span>
+            <DialogTitle>Connect {accountLabel} to continue</DialogTitle>
+          </div>
+          <DialogDescription>
+            {state?.message
+              ? state.message
+              : `Scheduling a ${meetingLabel} interview needs a connected ${accountLabel} account so we can generate the meeting link automatically.`}
+          </DialogDescription>
+        </DialogHeader>
+
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="ghost">Cancel</Button>
+          </DialogClose>
+          {isGoogle ? (
+            <Button variant="brand" onClick={onConnectGoogle} disabled={connecting}>
+              {connecting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Link2 className="size-4" />
+              )}
+              Connect Google
+            </Button>
+          ) : (
+            <Button variant="brand" onClick={onOpenSettings}>
+              <Link2 className="size-4" /> Open integration settings
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
