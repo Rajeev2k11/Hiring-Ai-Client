@@ -47,7 +47,7 @@ function ScheduleInner() {
   const params = useSearchParams();
   const paramApp = params.get("application");
 
-  const { data: allCandidates } = useCandidates();
+  const { data: allCandidates, isLoading: candidatesLoading } = useCandidates();
   const [appId, setAppId] = useState<string | null>(paramApp);
   const { data: candidate } = useCandidate(appId ?? "", Boolean(appId));
   const { data: team } = useTeam();
@@ -111,18 +111,22 @@ function ScheduleInner() {
           {!appId ? (
             <div className="rounded-2xl border border-border/70 bg-card/40 p-5">
               <p className="text-sm font-medium">Select a candidate</p>
-              <select
-                onChange={(e) => setAppId(e.target.value || null)}
-                defaultValue=""
-                className="mt-3 h-11 w-full rounded-xl border border-input bg-secondary/40 px-3 text-sm outline-none"
-              >
-                <option value="">Choose…</option>
-                {(allCandidates ?? []).map((c) => (
-                  <option key={c.application_id} value={c.application_id} className="bg-popover">
-                    {c.candidate_name} — {c.job_title}
-                  </option>
-                ))}
-              </select>
+              {candidatesLoading ? (
+                <Skeleton className="mt-3 h-11 w-full rounded-xl" />
+              ) : (
+                <select
+                  onChange={(e) => setAppId(e.target.value || null)}
+                  defaultValue=""
+                  className="mt-3 h-11 w-full rounded-xl border border-input bg-secondary/40 px-3 text-sm outline-none"
+                >
+                  <option value="">Choose…</option>
+                  {(allCandidates ?? []).map((c) => (
+                    <option key={c.application_id} value={c.application_id} className="bg-popover">
+                      {c.candidate_name} — {c.job_title}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           ) : !candidate ? (
             <Skeleton className="h-40 w-full rounded-2xl" />
@@ -152,23 +156,29 @@ function ScheduleInner() {
 
               <p className="mt-5 text-xs font-medium uppercase tracking-wider text-muted-foreground">Interviewers</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                {(team ?? []).slice(0, 6).map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => togglePanel(m.id)}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
-                      panel.includes(m.id)
-                        ? "border-electric/50 bg-electric/10 text-electric-soft"
-                        : "border-border/60 bg-secondary/30 text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <span className="grid h-5 w-5 place-items-center rounded-full bg-secondary text-[9px] font-medium">
-                      {initials(m.name)}
-                    </span>
-                    {m.name.split(" ")[0]}
-                  </button>
-                ))}
+                {!team ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-7 w-20 rounded-full" />
+                  ))
+                ) : (
+                  (team ?? []).slice(0, 6).map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => togglePanel(m.id)}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
+                        panel.includes(m.id)
+                          ? "border-electric/50 bg-electric/10 text-electric-soft"
+                          : "border-border/60 bg-secondary/30 text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <span className="grid h-5 w-5 place-items-center rounded-full bg-secondary text-[9px] font-medium">
+                        {initials(m.name)}
+                      </span>
+                      {m.name.split(" ")[0]}
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           )}

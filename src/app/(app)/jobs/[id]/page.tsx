@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, MapPin, Pencil, Radar, Share2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, Loader2, MapPin, Pencil, Radar, Share2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/app/StatusBadge";
@@ -15,7 +15,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useJob, useUpdateJob } from "@/hooks/useJobs";
 import { useCandidates, useUpdateApplicationStatus } from "@/hooks/useCandidates";
-import { APPLICATION_PIPELINE, JobStatus } from "@/types";
+import { useAuth } from "@/hooks/useAuth";
+import { useMounted } from "@/hooks/useMounted";
+import { APPLICATION_PIPELINE, JobStatus, isCompanyUser } from "@/types";
 import { APPLICATION_STATUS_META, JOB_STATUS_META, scoreTone } from "@/constants/status";
 import { cn, formatScore } from "@/lib/utils";
 import { UserAvatar } from "@/components/shared/UserAvatar";
@@ -26,10 +28,14 @@ const STATUS_OPTIONS = [JobStatus.OPEN, JobStatus.DRAFT, JobStatus.CLOSED];
 export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const mounted = useMounted();
+  const { identity } = useAuth();
   const { data: job, isLoading: jobLoading } = useJob(id);
   const { data: candidates, isLoading } = useCandidates({ job_id: id });
   const updateStatus = useUpdateApplicationStatus();
   const updateJob = useUpdateJob();
+
+  const companyName = mounted && identity && isCompanyUser(identity) ? identity.company_name : "";
 
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStatus, setOverStatus] = useState<string | null>(null);
@@ -113,6 +119,14 @@ export default function JobDetailPage() {
             </h1>
           )}
           <p className="mt-1.5 text-sm text-muted-foreground">
+            {companyName && (
+              <span className="mr-2 inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-secondary/40 px-2 py-0.5 text-xs font-medium text-foreground/80">
+                <span className="grid h-4 w-4 place-items-center rounded bg-brand-gradient text-[8px] font-bold text-white">
+                  {companyName.charAt(0).toUpperCase()}
+                </span>
+                {companyName}
+              </span>
+            )}
             {(candidates?.length ?? 0)} candidates · {job?.location ?? "—"} · {job?.department ?? "—"}
           </p>
         </div>
@@ -135,10 +149,12 @@ export default function JobDetailPage() {
       </div>
 
       {/* Job details (read or edit) */}
-      <div className="mt-6 rounded-2xl border border-border/70 bg-card/40 p-6">
-        {jobLoading || !job ? (
+      {jobLoading || !job ? (
+        <div className="mt-6 rounded-2xl border border-border/70 bg-card/40 p-6">
           <Skeleton className="h-40 w-full" />
-        ) : editing ? (
+        </div>
+      ) : editing ? (
+        <div className="mt-6 rounded-2xl border border-border/70 bg-card/40 p-6">
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
@@ -180,20 +196,10 @@ export default function JobDetailPage() {
               </Button>
             </div>
           </div>
-        ) : (
-          <div>
-            <div className="flex flex-wrap gap-2">
-              <Badge tone="neutral">{job.department ?? "No department"}</Badge>
-              <Badge tone="neutral"><MapPin className="mr-1 size-3" /> {job.location ?? "Remote"}</Badge>
-              <StatusBadge value={job.status} meta={JOB_STATUS_META} withDot />
-            </div>
-            <h2 className="mt-5 font-display text-base font-semibold">About the role</h2>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground/85">
-              {job.description}
-            </p>
-          </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <JobDescriptionCard job={job} />
+      )}
 
       {/* Pipeline */}
       <h2 className="mt-8 font-display text-lg font-semibold">Pipeline</h2>
@@ -318,5 +324,43 @@ function CandidateMiniCard({
         )}
       </div>
     </button>
+  );
+}
+
+function JobDescriptionCard({ job }: { job: { description: string; department: string | null; location: string | null; status: string } }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = job.description.length > 300;
+
+  return (
+    <div className="mt-6 rounded-2xl border border-border/70 bg-card/40 p-6">
+      <div className="flex flex-wrap gap-2">
+        <Badge tone="neutral">{job.department ?? "No department"}</Badge>
+        <Badge tone="neutral"><MapPin className="mr-1 size-3" /> {job.location ?? "Remote"}</Badge>
+        <StatusBadge value={job.status} meta={JOB_STATUS_META} withDot />
+      </div>
+      <h2 className="mt-5 font-display text-base font-semibold">About the role</h2>
+      <div className="relative mt-2">
+        <p
+          className={cn(
+            "whitespace-pre-wrap text-sm leading-relaxed text-foreground/85 transition-all duration-300",
+            !expanded && isLong && "line-clamp-3"
+          )}
+        >
+          {job.description}
+        </p>
+        {!expanded && isLong && (
+          <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-card/90 to-transparent" />
+        )}
+      </div>
+      {isLong && (
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-electric-soft hover:underline"
+        >
+          {expanded ? "Show less" : "Show more"}
+          <ChevronDown className={cn("size-3.5 transition-transform duration-200", expanded && "rotate-180")} />
+        </button>
+      )}
+    </div>
   );
 }

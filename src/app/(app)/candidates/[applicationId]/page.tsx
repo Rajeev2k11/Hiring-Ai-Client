@@ -12,7 +12,6 @@ import {
   FileText,
   Loader2,
   Mail,
-  MessageSquare,
   Sparkles,
   TrendingUp,
 } from "lucide-react";
@@ -98,7 +97,21 @@ export default function CandidateProfilePage() {
                   <option key={k} value={k} className="bg-popover">{v.label}</option>
                 ))}
               </select>
-              <Button variant="outline" size="icon-sm"><Mail className="size-4" /></Button>
+              <Button
+                asChild
+                variant="outline"
+                size="icon-sm"
+                title="Send email"
+              >
+                <a href={`mailto:${c.email}`}>
+                  <Mail className="size-4" />
+                </a>
+              </Button>
+              <Button asChild variant="brand" size="sm">
+                <Link href={`/interviews/schedule?application=${applicationId}`}>
+                  <CalendarPlus className="size-4" /> Schedule Interview
+                </Link>
+              </Button>
             </div>
           </div>
         </div>
@@ -120,7 +133,6 @@ export default function CandidateProfilePage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="resume">Resume</TabsTrigger>
           <TabsTrigger value="evaluation">AI Evaluation</TabsTrigger>
-          <TabsTrigger value="screening">Screening</TabsTrigger>
           <TabsTrigger value="interview">Interview</TabsTrigger>
         </TabsList>
 
@@ -224,25 +236,6 @@ export default function CandidateProfilePage() {
               }
             />
           )}
-        </TabsContent>
-
-        {/* SCREENING */}
-        <TabsContent value="screening" className="mt-6">
-          <div className="rounded-2xl border border-border/70 bg-card/40 p-6">
-            <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-              <div>
-                <h3 className="font-display text-lg font-semibold">AI Candidate Screening</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  An adaptive, conversational screen that scores answers in real time.
-                </p>
-              </div>
-              <Button asChild variant="brand">
-                <Link href={`/candidates/${applicationId}/screening`}>
-                  <MessageSquare className="size-4" /> Start screening
-                </Link>
-              </Button>
-            </div>
-          </div>
         </TabsContent>
 
         {/* INTERVIEW */}

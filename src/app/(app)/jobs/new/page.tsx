@@ -39,6 +39,8 @@ export default function CreateJobPage() {
   const salary = useSuggestSalary();
   const create = useCreateJob();
 
+  const isAiGenerating = improve.isPending || requirements.isPending || salary.isPending;
+
   const ctx = () => ({ title, department, location, description });
   const guard = () => {
     if (!title.trim()) {
@@ -163,13 +165,38 @@ export default function CreateJobPage() {
                 <Label htmlFor="desc">Description</Label>
                 <span className="text-xs text-muted-foreground">Markdown supported</span>
               </div>
-              <Textarea
-                id="desc"
-                rows={14}
-                placeholder="Write a brief overview of the role…"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
+              <div className="relative">
+                <Textarea
+                  id="desc"
+                  rows={14}
+                  placeholder="Write a brief overview of the role…"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  disabled={isAiGenerating}
+                  className={cn(isAiGenerating && "opacity-40")}
+                />
+                {isAiGenerating && (
+                  <div className="absolute inset-0 flex flex-col gap-2.5 rounded-xl border border-electric/30 bg-card/95 p-4">
+                    <div className="flex items-center gap-2 text-sm font-medium text-electric-soft">
+                      <Sparkles className="size-4 animate-pulse" />
+                      <span>AI is writing</span>
+                      <span className="inline-flex gap-0.5">
+                        <span className="animate-bounce [animation-delay:0ms]">.</span>
+                        <span className="animate-bounce [animation-delay:150ms]">.</span>
+                        <span className="animate-bounce [animation-delay:300ms]">.</span>
+                      </span>
+                    </div>
+                    <div className="mt-1 space-y-2.5">
+                      <div className="h-3.5 w-[90%] animate-pulse rounded bg-secondary/80" />
+                      <div className="h-3.5 w-[75%] animate-pulse rounded bg-secondary/60 [animation-delay:100ms]" />
+                      <div className="h-3.5 w-[85%] animate-pulse rounded bg-secondary/70 [animation-delay:200ms]" />
+                      <div className="h-3.5 w-[60%] animate-pulse rounded bg-secondary/50 [animation-delay:300ms]" />
+                      <div className="h-3.5 w-[70%] animate-pulse rounded bg-secondary/60 [animation-delay:400ms]" />
+                      <div className="h-3.5 w-[45%] animate-pulse rounded bg-secondary/40 [animation-delay:500ms]" />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-3 pt-2">
@@ -200,7 +227,14 @@ export default function CreateJobPage() {
             </div>
 
             <div className="mt-5 rounded-xl border border-border/60 bg-secondary/30 p-4 text-sm text-muted-foreground">
-              "I can help you build a compelling job post. What's next?"
+              {isAiGenerating ? (
+                <span className="flex items-center gap-2 text-electric-soft">
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Generating content, please wait…
+                </span>
+              ) : (
+                "\"I can help you build a compelling job post. What's next?\""
+              )}
             </div>
 
             <div className="mt-4 space-y-2.5">

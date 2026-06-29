@@ -2,7 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Monitor, ShieldAlert, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  Loader2,
+  Lock,
+  Monitor,
+  Pencil,
+  PauseCircle,
+  ShieldAlert,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/PageHeader";
@@ -26,6 +37,7 @@ import {
 } from "@/hooks/useSettings";
 import { useAuth } from "@/hooks/useAuth";
 import { formatRelative } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -40,10 +52,23 @@ export default function SettingsPage() {
   const revokeOthers = useRevokeOtherSessions();
   const deleteAccount = useDeleteAccount();
 
+  // Profile
+  const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [pw, setPw] = useState({ current: "", next: "" });
+
+  // Security
+  const [showPwForm, setShowPwForm] = useState(false);
+  const [pw, setPw] = useState({ current: "", next: "", confirm: "" });
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  // Danger Zone
+  const [deleteStep, setDeleteStep] = useState<"idle" | "otp" | "password">("idle");
+  const [otp, setOtp] = useState("");
   const [delPw, setDelPw] = useState("");
+  const [showDelPw, setShowDelPw] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -61,6 +86,56 @@ export default function SettingsPage() {
     );
   }
 
+  const handleSaveProfile = () => {
+    updateProfile.mutate(
+      { name },
+      {
+        onSuccess: () => {
+          toast.success("Profile updated");
+          setEditing(false);
+        },
+        onError: (e) => toast.error((e as Error).message),
+      }
+    );
+  };
+
+  const handleChangePassword = () => {
+    if (pw.next.length < 8) return toast.error("New password must be at least 8 characters.");
+    if (pw.next !== pw.confirm) return toast.error("Passwords do not match.");
+    changePassword.mutate(
+      { current_password: pw.current, new_password: pw.next },
+      {
+        onSuccess: () => {
+          toast.success("Password changed successfully");
+          setPw({ current: "", next: "", confirm: "" });
+          setShowPwForm(false);
+        },
+        onError: (e) => toast.error((e as Error).message),
+      }
+    );
+  };
+
+  const handleVerifyOtp = () => {
+    if (otp === "1234") {
+      setDeleteStep("password");
+      setOtp("");
+    } else {
+      toast.error("Invalid OTP. Please enter 1234.");
+    }
+  };
+
+  const handlePermanentDelete = () => {
+    if (!delPw) return toast.error("Enter your password to confirm.");
+    deleteAccount.mutate(delPw, {
+      onSuccess: () => {
+        toast.success("Account permanently deleted");
+        logout();
+        router.push("/");
+      },
+      onError: (e) => toast.error((e as Error).message),
+    });
+  };
+
   return (
     <div className="mx-auto max-w-[900px] px-5 py-8 lg:px-8">
       <PageHeader title="Settings" description="Manage your profile, notifications, and security." />
@@ -73,44 +148,63 @@ export default function SettingsPage() {
           <TabsTrigger value="danger">Danger Zone</TabsTrigger>
         </TabsList>
 
-        {/* Profile */}
+        {/* ─── Profile ─── */}
         <TabsContent value="profile" className="mt-6">
-          <Panel title="Profile information">
+          <Panel
+            title="Profile information"
+            action={
+              !editing ? (
+                <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                  <Pencil className="size-3.5" /> Edit
+                </Button>
+              ) : undefined
+            }
+          >
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="name">Full name</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={!editing}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  disabled
+                  className="cursor-not-allowed opacity-60"
+                />
+                <p className="text-[11px] text-muted-foreground">Email cannot be changed.</p>
               </div>
               <div className="space-y-1.5">
                 <Label>Role</Label>
                 <Input value={profile.role} disabled />
               </div>
             </div>
-            <Button
-              variant="brand"
-              className="mt-5"
-              disabled={updateProfile.isPending}
-              onClick={() =>
-                updateProfile.mutate(
-                  { name, email },
-                  {
-                    onSuccess: () => toast.success("Profile updated"),
-                    onError: (e) => toast.error((e as Error).message),
-                  }
-                )
-              }
-            >
-              {updateProfile.isPending && <Loader2 className="size-4 animate-spin" />}
-              Save changes
-            </Button>
+            {editing && (
+              <div className="mt-5 flex gap-2">
+                <Button
+                  variant="brand"
+                  disabled={updateProfile.isPending}
+                  onClick={handleSaveProfile}
+                >
+                  {updateProfile.isPending && <Loader2 className="size-4 animate-spin" />}
+                  Save changes
+                </Button>
+                <Button variant="ghost" onClick={() => { setEditing(false); setName(profile.name); }}>
+                  Cancel
+                </Button>
+              </div>
+            )}
           </Panel>
         </TabsContent>
 
-        {/* Notifications */}
+        {/* ─── Notifications ─── */}
         <TabsContent value="notifications" className="mt-6">
           <Panel title="Notification preferences">
             <div className="space-y-4">
@@ -134,39 +228,75 @@ export default function SettingsPage() {
           </Panel>
         </TabsContent>
 
-        {/* Security */}
+        {/* ─── Security ─── */}
         <TabsContent value="security" className="mt-6 space-y-6">
-          <Panel title="Change password">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="cpw">Current password</Label>
-                <Input id="cpw" type="password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} />
+          <Panel title="Password">
+            {!showPwForm ? (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Keep your account secure by using a strong password.
+                  </p>
+                </div>
+                <Button variant="secondary" onClick={() => setShowPwForm(true)}>
+                  <Lock className="size-4" /> Update your password
+                </Button>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="npw">New password</Label>
-                <Input id="npw" type="password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} />
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="cpw">Current password</Label>
+                  <PasswordInput
+                    id="cpw"
+                    value={pw.current}
+                    onChange={(e) => setPw({ ...pw, current: e.target.value })}
+                    show={showCurrent}
+                    onToggle={() => setShowCurrent((v) => !v)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="npw">New password</Label>
+                  <PasswordInput
+                    id="npw"
+                    value={pw.next}
+                    onChange={(e) => setPw({ ...pw, next: e.target.value })}
+                    show={showNew}
+                    onToggle={() => setShowNew((v) => !v)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="cpw2">Confirm new password</Label>
+                  <PasswordInput
+                    id="cpw2"
+                    value={pw.confirm}
+                    onChange={(e) => setPw({ ...pw, confirm: e.target.value })}
+                    show={showConfirm}
+                    onToggle={() => setShowConfirm((v) => !v)}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <button
+                    className="text-sm text-electric-soft hover:underline"
+                    onClick={() => toast.info("Password reset email would be sent.")}
+                  >
+                    Forgot your password?
+                  </button>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" onClick={() => { setShowPwForm(false); setPw({ current: "", next: "", confirm: "" }); }}>
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="brand"
+                      disabled={changePassword.isPending}
+                      onClick={handleChangePassword}
+                    >
+                      {changePassword.isPending && <Loader2 className="size-4 animate-spin" />}
+                      Change password
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </div>
-            <Button
-              variant="secondary"
-              className="mt-5"
-              disabled={changePassword.isPending}
-              onClick={() => {
-                if (pw.next.length < 8) return toast.error("New password must be 8+ characters.");
-                changePassword.mutate(
-                  { current_password: pw.current, new_password: pw.next },
-                  {
-                    onSuccess: () => {
-                      toast.success("Password changed");
-                      setPw({ current: "", next: "" });
-                    },
-                    onError: (e) => toast.error((e as Error).message),
-                  }
-                );
-              }}
-            >
-              Update password
-            </Button>
+            )}
           </Panel>
 
           <Panel
@@ -205,46 +335,157 @@ export default function SettingsPage() {
           </Panel>
         </TabsContent>
 
-        {/* Danger */}
-        <TabsContent value="danger" className="mt-6">
+        {/* ─── Danger Zone ─── */}
+        <TabsContent value="danger" className="mt-6 space-y-6">
+          {/* Temporarily Deactivate */}
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6">
+            <div className="flex items-center gap-2 text-amber-400">
+              <PauseCircle className="size-5" />
+              <h3 className="font-display text-base font-semibold">Temporarily Deactivate</h3>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Temporarily deactivate your account. Your data will be preserved and you can
+              reactivate anytime by logging back in.
+            </p>
+            <Button
+              variant="outline"
+              className="mt-4 border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+              onClick={() => toast.info("Temporary deactivation is not available yet. Coming soon!")}
+            >
+              <PauseCircle className="size-4" /> Deactivate account
+            </Button>
+          </div>
+
+          {/* Permanent Delete */}
           <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6">
             <div className="flex items-center gap-2 text-red-300">
               <ShieldAlert className="size-5" />
-              <h3 className="font-display text-base font-semibold">Delete account</h3>
+              <h3 className="font-display text-base font-semibold">Permanently Delete Account</h3>
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
               This permanently deletes your account and all associated data. This action
-              cannot be undone. Enter your password to confirm.
+              cannot be undone. You will need to verify with OTP and your password.
             </p>
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-              <Input
-                type="password"
-                placeholder="Your password"
-                value={delPw}
-                onChange={(e) => setDelPw(e.target.value)}
-                className="sm:max-w-xs"
-              />
+
+            {deleteStep === "idle" && (
               <Button
                 variant="destructive"
-                disabled={deleteAccount.isPending}
-                onClick={() => {
-                  if (!delPw) return toast.error("Enter your password to confirm.");
-                  deleteAccount.mutate(delPw, {
-                    onSuccess: () => {
-                      toast.success("Account deleted");
-                      logout();
-                      router.push("/");
-                    },
-                    onError: (e) => toast.error((e as Error).message),
-                  });
-                }}
+                className="mt-4"
+                onClick={() => setDeleteStep("otp")}
               >
-                <Trash2 className="size-4" /> Delete account
+                <Trash2 className="size-4" /> Delete account permanently
               </Button>
-            </div>
+            )}
+
+            {deleteStep === "otp" && (
+              <div className="mt-4 space-y-3">
+                <div className="rounded-xl border border-border/60 bg-secondary/20 p-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <AlertTriangle className="size-4 text-amber-400" />
+                    OTP Verification
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Enter the verification code sent to your email.
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <Input
+                      placeholder="Enter OTP"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      className="max-w-[200px]"
+                      maxLength={4}
+                    />
+                    <Button variant="secondary" onClick={handleVerifyOtp}>
+                      Verify
+                    </Button>
+                    <Button variant="ghost" onClick={() => { setDeleteStep("idle"); setOtp(""); }}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {deleteStep === "password" && (
+              <div className="mt-4 space-y-3">
+                <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-red-300">
+                    <ShieldAlert className="size-4" />
+                    Final confirmation — Enter your password
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    This is irreversible. Your account and all data will be permanently deleted.
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <div className="relative max-w-xs flex-1">
+                      <Input
+                        type={showDelPw ? "text" : "password"}
+                        placeholder="Your password"
+                        value={delPw}
+                        onChange={(e) => setDelPw(e.target.value)}
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowDelPw((v) => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showDelPw ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </button>
+                    </div>
+                    <Button
+                      variant="destructive"
+                      disabled={deleteAccount.isPending}
+                      onClick={handlePermanentDelete}
+                    >
+                      {deleteAccount.isPending && <Loader2 className="size-4 animate-spin" />}
+                      <Trash2 className="size-4" /> Delete forever
+                    </Button>
+                    <Button variant="ghost" onClick={() => { setDeleteStep("idle"); setDelPw(""); }}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+/* ─── Helper components ─── */
+
+function PasswordInput({
+  id,
+  value,
+  onChange,
+  show,
+  onToggle,
+}: {
+  id: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  show: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="relative">
+      <Input
+        id={id}
+        type={show ? "text" : "password"}
+        value={value}
+        onChange={onChange}
+        className="pr-10"
+      />
+      <button
+        type="button"
+        onClick={onToggle}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+      >
+        {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+      </button>
     </div>
   );
 }
