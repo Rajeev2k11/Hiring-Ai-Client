@@ -5,6 +5,7 @@ import type { ISODateString } from "./common";
 export interface CompanyUser {
   id: string;
   company_id: string;
+  company_name: string;
   email: string;
   name: string;
   role: string;

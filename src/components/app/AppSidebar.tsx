@@ -7,7 +7,9 @@ import { HelpCircle, LogOut, Plus } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { useMounted } from "@/hooks/useMounted";
 import { cn } from "@/lib/utils";
+import { isCompanyUser } from "@/types";
 import type { AppNavItem } from "@/constants/navigation";
 
 interface AppSidebarProps {
@@ -29,7 +31,10 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { logout } = useAuth();
+  const { identity, logout } = useAuth();
+  const mounted = useMounted();
+
+  const companyName = mounted && identity && isCompanyUser(identity) ? identity.company_name : "";
 
   const handleLogout = () => {
     logout();
@@ -48,9 +53,18 @@ export function AppSidebar({
     <aside className="sticky top-0 hidden h-screen w-[264px] shrink-0 flex-col border-r border-border/60 bg-card/30 px-4 py-5 lg:flex">
       <div className="px-2">
         <Logo href={homeHref} />
-        <p className="mt-1 pl-[2.85rem] text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-          {subtitle}
-        </p>
+        {companyName ? (
+          <div className="mt-2 flex items-center gap-2 pl-1">
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-brand-gradient text-[10px] font-bold text-white">
+              {companyName.charAt(0).toUpperCase()}
+            </span>
+            <span className="truncate text-xs font-semibold text-foreground/80">{companyName}</span>
+          </div>
+        ) : (
+          <p className="mt-1 pl-[2.85rem] text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            {subtitle}
+          </p>
+        )}
       </div>
 
       <nav className="mt-8 flex-1 space-y-1">

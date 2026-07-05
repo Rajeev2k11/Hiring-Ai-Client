@@ -25,17 +25,27 @@ const TABS = [
 ];
 
 function AvatarStack({ seed, count }: { seed: string; count: number }) {
-  const shown = Math.min(count, 3);
+  const shown = Math.min(count, 4);
   return (
-    <div className="flex items-center">
-      <div className="flex -space-x-2">
+    <div className="group relative flex items-center">
+      <div className="flex -space-x-2 transition-all duration-300 group-hover:scale-105">
         {Array.from({ length: shown }).map((_, i) => (
-          <UserAvatar key={i} seed={`${seed}-${i}`} size={28} className="border-2 border-card" />
+          <span key={i} className="inline-block transition-transform duration-200 group-hover:-translate-y-0.5">
+            <UserAvatar
+              seed={`${seed}-${i}`}
+              size={28}
+              className="border-2 border-card"
+            />
+          </span>
         ))}
       </div>
       {count > shown && (
-        <span className="ml-1 text-xs text-muted-foreground">+{count - shown}</span>
+        <span className="ml-1.5 text-xs font-medium text-muted-foreground">+{count - shown}</span>
       )}
+      {/* Hover tooltip */}
+      <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-foreground px-2.5 py-1 text-xs font-semibold text-background opacity-0 shadow-lg transition-all duration-200 group-hover:opacity-100 group-hover:-top-10">
+        {count === 0 ? "No applicants" : count >= 500 ? "500+ applicants" : count >= 100 ? "100+ applicants" : `${count} applicant${count !== 1 ? "s" : ""}`}
+      </span>
     </div>
   );
 }
