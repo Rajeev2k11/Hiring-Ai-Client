@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { useSession } from "@/hooks/useAuth";
+import { useSetupStatus } from "@/hooks/useCompany";
 import { useAppDispatch } from "@/store/hooks";
 import { setSession } from "@/store/slices/authSlice";
 import { AppSidebar } from "./AppSidebar";
@@ -31,6 +32,11 @@ interface AppChromeProps {
   otherActorHome: string;
   logoutHref?: string;
   homeHref?: string;
+  /**
+   * When true, company users whose onboarding isn't finished are redirected
+   * into the onboarding wizard before they can reach the app.
+   */
+  enforceOnboarding?: boolean;
 }
 
 export function AppChrome({
@@ -43,6 +49,7 @@ export function AppChrome({
   otherActorHome,
   logoutHref = "/",
   homeHref = "/dashboard",
+  enforceOnboarding = false,
 }: AppChromeProps) {
   const router = useRouter();
   const dispatch = useAppDispatch();
@@ -51,6 +58,31 @@ export function AppChrome({
   const loginPath = requiredActor === "candidate" ? "/candidate/login" : "/login";
   const authedHere =
     session?.authenticated && session.actor_type === requiredActor;
+
+  // Only fetch the setup status when we need to enforce onboarding for a
+  // validated company user.
+  const onboardingGateActive = enforceOnboarding && Boolean(authedHere);
+  const {
+    data: setup,
+    isLoading: setupLoading,
+    isError: setupError,
+  } = useSetupStatus(onboardingGateActive);
+
+  const needsOnboarding = Boolean(
+    onboardingGateActive && setup && !setup.onboarding.setup_complete
+  );
+  // Still resolving status (don't flash the dashboard yet). Fail open if the
+  // status endpoint errors so users are never trapped on a loader.
+  const awaitingSetup = onboardingGateActive && setupLoading && !setupError;
+
+  useEffect(() => {
+    if (!needsOnboarding || !setup) return;
+    router.replace(
+      setup.onboarding.profile_completed
+        ? "/onboarding/invite"
+        : "/onboarding/company"
+    );
+  }, [needsOnboarding, setup, router]);
 
   useEffect(() => {
     if (isLoading || !session) return;
@@ -75,7 +107,11 @@ export function AppChrome({
   // momentarily unreachable (middleware already gated the route by cookie).
   const showShell = authedHere || session?.unreachable;
 
-  if (isLoading || !showShell) return <FullLoader />;
+  // Hold the loader while the onboarding gate is resolving or a redirect to
+  // the wizard is pending, so the dashboard never flashes for an un-onboarded
+  // company.
+  if (isLoading || !showShell || awaitingSetup || needsOnboarding)
+    return <FullLoader />;
 
   return (
     <div className="flex min-h-screen bg-background">

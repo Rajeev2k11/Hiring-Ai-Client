@@ -14,6 +14,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       primaryCta={{ label: "Post a Job", href: "/jobs/new" }}
       requiredActor="company_user"
       otherActorHome="/portal"
+      enforceOnboarding
     >
       {children}
     </AppChrome>
