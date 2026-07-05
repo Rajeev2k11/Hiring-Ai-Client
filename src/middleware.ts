@@ -7,6 +7,7 @@ const ACTOR_COOKIE = "hos_actor";
 
 const COMPANY_PREFIXES = [
   "/dashboard",
+  "/onboarding",
   "/jobs",
   "/candidates",
   "/interviews",

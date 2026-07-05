@@ -1,3 +1,12 @@
+/**
+ * LEGACY / UNUSED — kept for reference only.
+ *
+ * The real auth flow runs entirely through the BFF: components use `useAuth`
+ * (src/hooks/useAuth.ts), which calls `authClient` (src/services/auth-client.ts)
+ * → the Next route handlers under src/app/api/auth/*. Nothing in the app imports
+ * `authService` at a call site anymore (it is only re-exported by the services
+ * barrel). Do not wire new code to this module; use `authClient`/`useAuth`.
+ */
 import { apiClient } from "@/lib/api-client";
 import { clone, resolve, uid } from "./api-helpers";
 import { COMPANY, TEAM } from "./mock/seed";

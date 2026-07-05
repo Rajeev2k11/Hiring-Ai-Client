@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Monitor, ShieldAlert, Trash2 } from "lucide-react";
+import { Loader2, Monitor, ShieldAlert, Trash2, Mail, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/PageHeader";
@@ -24,8 +24,17 @@ import {
   useRevokeOtherSessions,
   useDeleteAccount,
 } from "@/hooks/useSettings";
+import {
+  useTeam,
+  useInvitations,
+  useInviteMember,
+  useRevokeInvite,
+} from "@/hooks/useTeam";
 import { useAuth } from "@/hooks/useAuth";
+import { ROLE_LABELS, ROLE_OPTIONS } from "@/constants/roles";
+import { UserRole } from "@/types";
 import { formatRelative } from "@/lib/format";
+import { initials } from "@/lib/utils";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -61,6 +70,8 @@ export default function SettingsPage() {
     );
   }
 
+  const isAdmin = profile.role === UserRole.ADMIN;
+
   return (
     <div className="mx-auto max-w-[900px] px-5 py-8 lg:px-8">
       <PageHeader title="Settings" description="Manage your profile, notifications, and security." />
@@ -69,6 +80,7 @@ export default function SettingsPage() {
         <TabsList className="w-full overflow-x-auto">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          {isAdmin && <TabsTrigger value="team">Team</TabsTrigger>}
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="danger">Danger Zone</TabsTrigger>
         </TabsList>
@@ -133,6 +145,13 @@ export default function SettingsPage() {
             </div>
           </Panel>
         </TabsContent>
+
+        {/* Team */}
+        {isAdmin && (
+          <TabsContent value="team" className="mt-6">
+            <TeamPanel />
+          </TabsContent>
+        )}
 
         {/* Security */}
         <TabsContent value="security" className="mt-6 space-y-6">
@@ -267,6 +286,138 @@ function ToggleRow({
         <p className="text-xs text-muted-foreground">{desc}</p>
       </div>
       <Switch checked={checked} onCheckedChange={onChange} />
+    </div>
+  );
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function TeamPanel() {
+  const { data: members } = useTeam();
+  const { data: invites } = useInvitations();
+  const invite = useInviteMember();
+  const revoke = useRevokeInvite();
+
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<string>(UserRole.RECRUITER);
+
+  const send = async () => {
+    if (!EMAIL_RE.test(email.trim())) return toast.error("Enter a valid email.");
+    try {
+      await invite.mutateAsync({ email: email.trim(), role });
+      toast.success(`Invitation sent to ${email.trim()}`);
+      setEmail("");
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Panel title="Invite a team member">
+        <p className="text-sm text-muted-foreground">
+          They&apos;ll receive an email to accept the invitation and sign in.
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+          <div className="space-y-1.5">
+            <Label htmlFor="invite-email">Email address</Label>
+            <Input
+              id="invite-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && send()}
+              placeholder="teammate@company.com"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="invite-role">Role</Label>
+            <select
+              id="invite-role"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="h-11 w-full rounded-xl border border-input bg-secondary/40 px-3 text-sm outline-none sm:w-48"
+            >
+              {ROLE_OPTIONS.map((r) => (
+                <option key={r.value} value={r.value} className="bg-popover">
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button variant="brand" onClick={send} disabled={invite.isPending}>
+            {invite.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <UserPlus className="size-4" />
+            )}
+            Invite
+          </Button>
+        </div>
+      </Panel>
+
+      {invites && invites.length > 0 && (
+        <Panel title="Pending invitations">
+          <div className="space-y-2.5">
+            {invites.map((inv) => (
+              <div
+                key={inv.id}
+                className="flex items-center justify-between rounded-xl border border-border/50 bg-secondary/20 p-3.5"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="grid size-9 place-items-center rounded-lg border border-border/60 bg-card text-muted-foreground">
+                    <Mail className="size-4" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium">{inv.email}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {ROLE_LABELS[inv.role] ?? inv.role}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge tone="warning">{inv.status}</Badge>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-red-300"
+                    onClick={() =>
+                      revoke.mutate(inv.id, {
+                        onSuccess: () => toast.success("Invitation revoked"),
+                        onError: (e) => toast.error((e as Error).message),
+                      })
+                    }
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
+
+      <Panel title="Team members">
+        <div className="space-y-2.5">
+          {(members ?? []).map((m) => (
+            <div
+              key={m.id}
+              className="flex items-center justify-between rounded-xl border border-border/50 bg-secondary/20 p-3.5"
+            >
+              <div className="flex items-center gap-3">
+                <span className="grid size-9 place-items-center rounded-full bg-secondary text-xs font-medium">
+                  {initials(m.name)}
+                </span>
+                <div>
+                  <p className="text-sm font-medium">{m.name}</p>
+                  <p className="text-xs text-muted-foreground">{m.email}</p>
+                </div>
+              </div>
+              <Badge tone="neutral">{ROLE_LABELS[m.role] ?? m.role}</Badge>
+            </div>
+          ))}
+        </div>
+      </Panel>
     </div>
   );
 }

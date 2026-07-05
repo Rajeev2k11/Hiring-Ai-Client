@@ -54,7 +54,11 @@ export const queryKeys = {
     profile: ["settings", "profile"] as const,
     sessions: ["settings", "sessions"] as const,
   },
+  company: {
+    status: ["company", "status"] as const,
+  },
   team: {
     members: ["team", "members"] as const,
+    invites: ["team", "invites"] as const,
   },
 } as const;
