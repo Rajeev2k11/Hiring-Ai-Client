@@ -8,5 +8,6 @@ export { sourcingService } from "./sourcing.service";
 export { analyticsService } from "./analytics.service";
 export { settingsService } from "./settings.service";
 export { integrationsService } from "./integrations.service";
+export { companyService } from "./company.service";
 export { aiService } from "./ai.service";
 export { teamService } from "./team.service";

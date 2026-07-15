@@ -20,7 +20,7 @@ export default function PortalHome() {
   const mounted = useMounted();
   const { identity } = useAuth();
   const { data: apps, isLoading } = useMyApplications();
-  const { data: jobs } = usePortalJobs();
+  const { data: jobs, isLoading: jobsLoading } = usePortalJobs();
 
   const first = mounted && identity ? identity.name.split(" ")[0] : "there";
   const active = (apps ?? []).filter(
@@ -66,22 +66,30 @@ export default function PortalHome() {
           action={<Link href="/portal/jobs" className="text-sm text-electric-soft hover:underline">Browse</Link>}
         >
           <div className="space-y-3">
-            {(jobs ?? []).slice(0, 3).map((j) => (
-              <Link
-                key={j.id}
-                href={`/portal/jobs/${j.id}`}
-                className="flex items-center gap-3 rounded-xl border border-border/50 bg-secondary/20 p-3.5 hover:border-electric/40"
-              >
-                <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-border/60 bg-secondary/40 text-electric-soft">
-                  <Briefcase className="size-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{j.title}</p>
-                  <p className="truncate text-xs text-muted-foreground">{j.department ?? "—"} · {j.location ?? "Remote"}</p>
-                </div>
-                <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
-              </Link>
-            ))}
+            {jobsLoading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full rounded-xl" />
+              ))
+            ) : (jobs ?? []).length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">No roles available yet.</p>
+            ) : (
+              (jobs ?? []).slice(0, 3).map((j) => (
+                <Link
+                  key={j.id}
+                  href={`/portal/jobs/${j.id}`}
+                  className="flex items-center gap-3 rounded-xl border border-border/50 bg-secondary/20 p-3.5 hover:border-electric/40"
+                >
+                  <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-border/60 bg-secondary/40 text-electric-soft">
+                    <Briefcase className="size-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{j.title}</p>
+                    <p className="truncate text-xs text-muted-foreground">{j.department ?? "—"} · {j.location ?? "Remote"}</p>
+                  </div>
+                  <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+                </Link>
+              ))
+            )}
           </div>
           <div className="mt-4 rounded-xl border border-electric/20 bg-electric/5 p-3.5 text-xs text-foreground/80">
             <Sparkles className="mb-1 size-4 text-electric-soft" />

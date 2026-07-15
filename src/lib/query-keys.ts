@@ -57,7 +57,11 @@ export const queryKeys = {
   integrations: {
     google: ["integrations", "google"] as const,
   },
+  company: {
+    status: ["company", "status"] as const,
+  },
   team: {
     members: ["team", "members"] as const,
+    invites: ["team", "invites"] as const,
   },
 } as const;

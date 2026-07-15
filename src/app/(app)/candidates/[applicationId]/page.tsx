@@ -10,8 +10,8 @@ import {
   CalendarPlus,
   Check,
   FileText,
+  Loader2,
   Mail,
-  MessageSquare,
   Sparkles,
   TrendingUp,
 } from "lucide-react";
@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCandidate, useUpdateApplicationStatus } from "@/hooks/useCandidates";
+import { useEvaluateApplication } from "@/hooks/useApplications";
 import { useInterviews } from "@/hooks/useInterviews";
 import {
   APPLICATION_STATUS_META,
@@ -40,6 +41,13 @@ export default function CandidateProfilePage() {
   const { data: c, isLoading } = useCandidate(applicationId);
   const { data: interviews } = useInterviews();
   const updateStatus = useUpdateApplicationStatus();
+  const evaluate = useEvaluateApplication();
+
+  const runEvaluation = () =>
+    evaluate.mutate(applicationId, {
+      onSuccess: () => toast.success("AI evaluation complete"),
+      onError: (e) => toast.error((e as Error).message || "Evaluation failed"),
+    });
 
   if (isLoading || !c) {
     return (
@@ -89,7 +97,21 @@ export default function CandidateProfilePage() {
                   <option key={k} value={k} className="bg-popover">{v.label}</option>
                 ))}
               </select>
-              <Button variant="outline" size="icon-sm"><Mail className="size-4" /></Button>
+              <Button
+                asChild
+                variant="outline"
+                size="icon-sm"
+                title="Send email"
+              >
+                <a href={`mailto:${c.email}`}>
+                  <Mail className="size-4" />
+                </a>
+              </Button>
+              <Button asChild variant="brand" size="sm">
+                <Link href={`/interviews/schedule?application=${applicationId}`}>
+                  <CalendarPlus className="size-4" /> Schedule Interview
+                </Link>
+              </Button>
             </div>
           </div>
         </div>
@@ -111,7 +133,6 @@ export default function CandidateProfilePage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="resume">Resume</TabsTrigger>
           <TabsTrigger value="evaluation">AI Evaluation</TabsTrigger>
-          <TabsTrigger value="screening">Screening</TabsTrigger>
           <TabsTrigger value="interview">Interview</TabsTrigger>
         </TabsList>
 
@@ -206,29 +227,15 @@ export default function CandidateProfilePage() {
             <EmptyState
               icon={Sparkles}
               title="Not evaluated yet"
-              description="Run the Screening Agent to score this candidate against the role."
-              action={<Button variant="brand">Run AI evaluation</Button>}
+              description="Run the AI scorer to evaluate this candidate's résumé against the role."
+              action={
+                <Button variant="brand" onClick={runEvaluation} disabled={evaluate.isPending}>
+                  {evaluate.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                  Run AI evaluation
+                </Button>
+              }
             />
           )}
-        </TabsContent>
-
-        {/* SCREENING */}
-        <TabsContent value="screening" className="mt-6">
-          <div className="rounded-2xl border border-border/70 bg-card/40 p-6">
-            <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-              <div>
-                <h3 className="font-display text-lg font-semibold">AI Candidate Screening</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  An adaptive, conversational screen that scores answers in real time.
-                </p>
-              </div>
-              <Button asChild variant="brand">
-                <Link href={`/candidates/${applicationId}/screening`}>
-                  <MessageSquare className="size-4" /> Start screening
-                </Link>
-              </Button>
-            </div>
-          </div>
         </TabsContent>
 
         {/* INTERVIEW */}

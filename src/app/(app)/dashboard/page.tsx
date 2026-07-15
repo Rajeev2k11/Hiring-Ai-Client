@@ -23,6 +23,7 @@ import { useDashboardStats } from "@/hooks/useDashboard";
 import { useCandidates } from "@/hooks/useCandidates";
 import { useAuth } from "@/hooks/useAuth";
 import { useMounted } from "@/hooks/useMounted";
+import { isCompanyUser } from "@/types";
 import { APPLICATION_STATUS_META } from "@/constants/status";
 import { formatRelative } from "@/lib/format";
 
@@ -39,6 +40,7 @@ export default function DashboardPage() {
   const { data: candidates, isLoading: candidatesLoading } = useCandidates();
 
   const firstName = mounted && identity ? identity.name.split(" ")[0] : "there";
+  const companyName = mounted && identity && isCompanyUser(identity) ? identity.company_name : "";
 
   const recent = [...(candidates ?? [])]
     .sort((a, b) => +new Date(b.applied_at) - +new Date(a.applied_at))
@@ -46,6 +48,19 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-[1280px] px-5 py-8 lg:px-8">
+      {/* Company identity bar */}
+      {companyName && (
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-border/70 bg-card/40 px-5 py-4">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-gradient text-lg font-bold text-white">
+            {companyName.charAt(0).toUpperCase()}
+          </span>
+          <div>
+            <p className="text-base font-semibold">{companyName}</p>
+            <p className="text-xs text-muted-foreground">Hiring Dashboard</p>
+          </div>
+        </div>
+      )}
+
       <PageHeader
         eyebrow="Executive Dashboard"
         title={`Welcome back, ${firstName}`}

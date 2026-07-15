@@ -1,7 +1,4 @@
-import { apiClient } from "@/lib/api-client";
 import { api } from "@/lib/api-fetch";
-import { clone, nowISO, resolve } from "./api-helpers";
-import { INTERVIEWS, TEAM } from "./mock/seed";
 import type {
   AvailabilityResponse,
   Interview,
@@ -9,6 +6,13 @@ import type {
   InterviewUpdateInput,
 } from "@/types";
 
+/**
+ * Interviews — real backend integration via the authenticated BFF proxy.
+ *
+ * Maps to the company-scoped recruiter interview routes
+ * (/recruiter/interviews/*). Every route derives the company from the
+ * authenticated recruiter's token.
+ */
 export const interviewsService = {
   /**
    * Live integration via the authenticated BFF proxy
@@ -67,15 +71,9 @@ export const interviewsService = {
     return res.json();
   },
 
+  /** Single interview by id — GET /recruiter/interviews/{id}. */
   get(id: string): Promise<Interview> {
-    return resolve(
-      () => {
-        const found = INTERVIEWS.find((i) => i.id === id);
-        if (!found) throw { status: 404, message: "Interview not found" };
-        return clone(found);
-      },
-      async () => (await apiClient.get(`/recruiter/interviews/${id}`)).data
-    );
+    return api.get<Interview>(`recruiter/interviews/${id}`);
   },
 
   /**
@@ -88,33 +86,13 @@ export const interviewsService = {
     return api.post<Interview>("recruiter/interviews", payload);
   },
 
+  /** Manage / reschedule / cancel — PATCH /recruiter/interviews/{id}. */
   update(id: string, payload: InterviewUpdateInput): Promise<Interview> {
-    return resolve(
-      () => {
-        const interview = INTERVIEWS.find((i) => i.id === id);
-        if (!interview) throw { status: 404, message: "Interview not found" };
-        Object.assign(interview, payload, { updated_at: nowISO() });
-        if (payload.interviewer_ids) {
-          interview.interviewers = payload.interviewer_ids
-            .map((iid) => TEAM.find((t) => t.id === iid))
-            .filter(Boolean)
-            .map((m) => ({ id: m!.id, name: m!.name, email: m!.email }));
-        }
-        return clone(interview);
-      },
-      async () => (await apiClient.patch(`/recruiter/interviews/${id}`, payload)).data
-    );
+    return api.patch<Interview>(`recruiter/interviews/${id}`, payload);
   },
 
+  /** Remove an interview — DELETE /recruiter/interviews/{id}. */
   remove(id: string): Promise<void> {
-    return resolve(
-      () => {
-        const idx = INTERVIEWS.findIndex((i) => i.id === id);
-        if (idx >= 0) INTERVIEWS.splice(idx, 1);
-      },
-      async () => {
-        await apiClient.delete(`/recruiter/interviews/${id}`);
-      }
-    );
+    return api.del<void>(`recruiter/interviews/${id}`);
   },
 };

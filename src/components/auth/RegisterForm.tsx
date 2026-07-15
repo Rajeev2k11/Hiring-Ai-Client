@@ -75,7 +75,7 @@ export function RegisterForm({ actor }: { actor: Actor }) {
         });
       }
       toast.success("Account created — welcome to Hiring OS");
-      router.push(actor === "company" ? "/dashboard" : "/portal");
+      router.push(actor === "company" ? "/onboarding/company" : "/portal");
     } catch (e) {
       const msg = (e as { message?: string })?.message ?? "Registration failed";
       if (/already/i.test(msg)) {

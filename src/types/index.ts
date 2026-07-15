@@ -11,3 +11,5 @@ export * from "./analytics";
 export * from "./ai";
 export * from "./settings";
 export * from "./integrations";
+export * from "./company";
+export * from "./team";

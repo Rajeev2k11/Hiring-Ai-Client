@@ -8,7 +8,6 @@ import {
   STEP_BY_STATUS,
   type PortalApplication,
 } from "@/services/portal.service";
-import { LIVE } from "@/lib/query-client";
 import { useAppSelector } from "@/store/hooks";
 
 /**
@@ -21,7 +20,6 @@ export function useMyApplications() {
   return useQuery({
     queryKey: ["portal", "applications", candidateId],
     enabled: Boolean(candidateId),
-    ...LIVE,
     queryFn: async (): Promise<PortalApplication[]> => {
       const [apps, jobs] = await Promise.all([
         applicationsService.list(),
@@ -52,7 +50,6 @@ export function usePortalJobs() {
   return useQuery({
     queryKey: ["portal", "jobs"],
     queryFn: () => portalService.openJobs(),
-    ...LIVE,
   });
 }
 
@@ -73,7 +70,6 @@ export function useMyApplicationForJob(jobId: string, enabled = true) {
   return useQuery({
     queryKey: ["portal", "job-application", jobId, candidateId],
     enabled: enabled && Boolean(jobId) && Boolean(candidateId),
-    ...LIVE,
     queryFn: async () => {
       const apps = await applicationsService.list({ job_id: jobId });
       return apps.find((a) => a.candidate_id === candidateId) ?? null;
