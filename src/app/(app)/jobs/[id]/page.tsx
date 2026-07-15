@@ -141,8 +141,8 @@ export default function JobDetailPage() {
             <Share2 className="size-4" /> Share
           </Button>
           <Button asChild variant="brand" size="sm">
-            <Link href="/interviews">
-              <Radar className="size-4" /> Source more
+            <Link href={`/jobs/${id}/matches`}>
+              <Radar className="size-4" /> AI Match
             </Link>
           </Button>
         </div>

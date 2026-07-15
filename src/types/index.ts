@@ -7,6 +7,8 @@ export * from "./application";
 export * from "./candidate";
 export * from "./interview";
 export * from "./sourcing";
+export * from "./match";
+export * from "./pool";
 export * from "./analytics";
 export * from "./ai";
 export * from "./settings";

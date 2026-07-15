@@ -47,6 +47,15 @@ export const queryKeys = {
     runCandidates: (id: string, selectedOnly: boolean) =>
       ["sourcing", "run", id, "candidates", { selectedOnly }] as const,
   },
+  matching: {
+    run: (runId: string) => ["matching", "run", runId] as const,
+    candidates: (jobId: string, filters: { min_score?: number; status?: string }) =>
+      ["matching", "candidates", jobId, filters] as const,
+    match: (matchId: string) => ["matching", "match", matchId] as const,
+  },
+  pool: {
+    list: (source_type?: string) => ["pool", "list", { source_type }] as const,
+  },
   analytics: {
     overview: ["analytics", "overview"] as const,
   },

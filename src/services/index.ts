@@ -5,6 +5,8 @@ export { applicationsService } from "./applications.service";
 export { resumeService } from "./resume.service";
 export { interviewsService } from "./interviews.service";
 export { sourcingService } from "./sourcing.service";
+export { matchingService } from "./matching.service";
+export { poolService } from "./pool.service";
 export { analyticsService } from "./analytics.service";
 export { settingsService } from "./settings.service";
 export { companyService } from "./company.service";

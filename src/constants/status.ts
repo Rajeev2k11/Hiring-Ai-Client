@@ -50,6 +50,13 @@ export const SOURCING_STATUS_META: Record<string, StatusMeta> = {
   [SourcingRunStatus.FAILED]: { label: "Failed", tone: "danger" },
 };
 
+export const MATCH_STATUS_META: Record<string, StatusMeta> = {
+  NEW: { label: "New", tone: "neutral" },
+  SAVED: { label: "Saved", tone: "success" },
+  CONTACTED: { label: "Contacted", tone: "info" },
+  REJECTED: { label: "Rejected", tone: "danger" },
+};
+
 export const RECOMMENDATION_META: Record<string, StatusMeta> = {
   [AiRecommendation.SHORTLIST]: { label: "Shortlist", tone: "success" },
   [AiRecommendation.MAYBE]: { label: "Maybe", tone: "warning" },

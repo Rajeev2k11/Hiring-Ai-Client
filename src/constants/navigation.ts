@@ -5,6 +5,7 @@ import {
   FileText,
   LayoutDashboard,
   Settings,
+  Sparkles,
   UserRound,
   Users,
   type LucideIcon,
@@ -20,6 +21,7 @@ export interface AppNavItem {
 export const APP_NAV: AppNavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Jobs", href: "/jobs", icon: Briefcase },
+  { label: "Talent Pool", href: "/pool", icon: Sparkles },
   { label: "Candidates", href: "/candidates", icon: Users },
   { label: "Interviews", href: "/interviews", icon: CalendarCheck },
   { label: "Analytics", href: "/analytics", icon: BarChart3 },

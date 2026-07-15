@@ -1,4 +1,5 @@
 import type { ISODateString } from "./common";
+import type { ParsedRequirements } from "./match";
 
 /** app/schemas/job.py → JobResponse */
 export interface Job {
@@ -9,6 +10,7 @@ export interface Job {
   location: string | null;
   description: string;
   status: string; // JobStatus
+  parsed_requirements?: ParsedRequirements | null;
   created_at: ISODateString;
   updated_at: ISODateString;
 }

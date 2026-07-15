@@ -9,6 +9,7 @@ const COMPANY_PREFIXES = [
   "/dashboard",
   "/onboarding",
   "/jobs",
+  "/pool",
   "/candidates",
   "/interviews",
   "/analytics",
