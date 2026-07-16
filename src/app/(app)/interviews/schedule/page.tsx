@@ -8,31 +8,72 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Link2,
   Loader2,
   Send,
   Sparkles,
+  TriangleAlert,
   Video,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { useCandidate, useCandidates } from "@/hooks/useCandidates";
-import { useCreateInterview } from "@/hooks/useInterviews";
+import { useCreateInterview, useInterviewAvailability } from "@/hooks/useInterviews";
+import { useGoogleStatus, useConnectGoogle } from "@/hooks/useIntegrations";
 import { useTeam } from "@/hooks/useTeam";
 import { InterviewPlatform } from "@/types";
 import { cn, initials } from "@/lib/utils";
+import { formatTime } from "@/lib/format";
+import { APPLICATION_STATUS_META, PLATFORM_LABELS } from "@/constants/status";
 
-const SLOTS = [
-  { label: "09:00 AM — 10:00 AM", hour: 9, note: "4 interviewers available", optimal: false },
-  { label: "11:30 AM — 12:30 PM", hour: 11.5, note: "High interviewer overlap", optimal: true },
-  { label: "02:00 PM — 03:00 PM", hour: 14, note: "3 interviewers available", optimal: false },
-  { label: "03:30 PM — 04:30 PM", hour: 15.5, note: "Fully available", optimal: false },
+const DURATION_MINUTES = 60;
+const TIMEZONE = "America/New_York";
+
+const PLATFORM_OPTIONS = [
+  { value: InterviewPlatform.ZOOM, label: "Zoom" },
+  { value: InterviewPlatform.GOOGLE_MEET, label: "Google Meet" },
 ];
 
 const STAGES = ["Technical Screen", "Technical Deep Dive", "System Design", "Hiring Manager", "Final Panel"];
 const WD = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+
+/**
+ * Heuristic: did the create fail because the meeting provider account
+ * (Google / Zoom) isn't connected or its OAuth isn't configured?
+ */
+function isAccountConnectionError(message: string): boolean {
+  const m = message.toLowerCase();
+  const mentionsProvider =
+    m.includes("google") ||
+    m.includes("zoom") ||
+    m.includes("calendar") ||
+    m.includes("meet");
+  const mentionsConnect =
+    m.includes("connect") || m.includes("token") || m.includes("credential");
+  return (
+    m.includes("not connected") ||
+    m.includes("no connected") ||
+    m.includes("connect a") ||
+    m.includes("connect your") ||
+    m.includes("not configured") ||
+    m.includes("oauth") ||
+    m.includes("authoriz") ||
+    m.includes("refresh token") ||
+    (mentionsProvider && mentionsConnect)
+  );
+}
 
 export default function SchedulePage() {
   return (
@@ -51,7 +92,23 @@ function ScheduleInner() {
   const [appId, setAppId] = useState<string | null>(paramApp);
   const { data: candidate } = useCandidate(appId ?? "", Boolean(appId));
   const { data: team } = useTeam();
+  const { data: googleStatus } = useGoogleStatus();
   const create = useCreateInterview();
+  const connectGoogle = useConnectGoogle();
+
+  // Drives the "connect account" popup. Holds the provider that needs
+  // connecting plus an optional precise message from the backend.
+  const [connectState, setConnectState] = useState<{
+    provider: string;
+    message?: string;
+  } | null>(null);
+
+  const googleConnected = googleStatus?.connected ?? false;
+  const [platformChoice, setPlatformChoice] = useState<string | null>(null);
+  // Default follows the Google connection state until the user picks explicitly.
+  const platform =
+    platformChoice ??
+    (googleConnected ? InterviewPlatform.GOOGLE_MEET : InterviewPlatform.ZOOM);
 
   const [stage, setStage] = useState(STAGES[1]);
   const [month, setMonth] = useState(() => {
@@ -75,26 +132,79 @@ function ScheduleInner() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const togglePanel = (id: string) =>
+  const dateStr = selectedDate
+    ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`
+    : null;
+
+  const {
+    data: availability,
+    isLoading: slotsLoading,
+    isError: slotsError,
+    error: slotsErr,
+  } = useInterviewAvailability(
+    {
+      date: dateStr,
+      interviewer_ids: panel,
+      duration_minutes: DURATION_MINUTES,
+      timezone: TIMEZONE,
+    },
+    Boolean(dateStr)
+  );
+
+  const slots = availability?.slots ?? [];
+
+  const selectDate = (d: Date) => {
+    setSelectedDate(d);
+    setSlot(null);
+  };
+
+  const togglePanel = (id: string) => {
     setPanel((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+    setSlot(null);
+  };
 
   const schedule = async () => {
-    if (!appId) return toast.error("Select a candidate first.");
-    if (!selectedDate || slot === null) return toast.error("Pick a date and time slot.");
-    const dt = new Date(selectedDate);
-    dt.setHours(Math.floor(SLOTS[slot].hour), (SLOTS[slot].hour % 1) * 60, 0, 0);
-    await create.mutateAsync({
-      application_id: appId,
-      stage,
-      scheduled_at: dt.toISOString(),
-      duration_minutes: 60,
-      platform: InterviewPlatform.ZOOM,
-      timezone: "America/New_York",
-      interviewer_ids: panel,
-      auto_generate_meeting: true,
-    });
-    toast.success(`Interview scheduled${candidate ? ` for ${candidate.name}` : ""}`);
-    router.push("/interviews");
+    if (!appId) return toast.error("Select an applicant first.");
+    if (!selectedDate) return toast.error("Pick a date first.");
+    if (slot === null || !slots[slot]) return toast.error("Pick a time slot.");
+
+    // Proactive guard: Google Meet needs a connected Google account. We can
+    // verify this client-side (Zoom has no status endpoint, so it's handled
+    // reactively via the backend error below).
+    if (
+      platform === InterviewPlatform.GOOGLE_MEET &&
+      googleStatus &&
+      !googleStatus.connected
+    ) {
+      setConnectState({ provider: InterviewPlatform.GOOGLE_MEET });
+      return;
+    }
+
+    const chosen = slots[slot];
+    try {
+      await create.mutateAsync({
+        application_id: appId,
+        stage,
+        scheduled_at: chosen.start_at,
+        duration_minutes: DURATION_MINUTES,
+        platform,
+        timezone: TIMEZONE,
+        interviewer_ids: panel,
+        auto_generate_meeting: true,
+      });
+      toast.success(`Interview scheduled${candidate ? ` for ${candidate.name}` : ""}`);
+      router.push("/interviews");
+    } catch (e) {
+      const message =
+        (e as { message?: string })?.message ?? "Failed to schedule interview.";
+      // If it failed because the meeting account isn't connected, prompt the
+      // user to connect it; otherwise surface the precise backend error.
+      if (isAccountConnectionError(message)) {
+        setConnectState({ provider: platform, message });
+      } else {
+        toast.error(message);
+      }
+    }
   };
 
   return (
@@ -211,7 +321,7 @@ function ScheduleInner() {
                 <button
                   key={i}
                   disabled={disabled}
-                  onClick={() => setSelectedDate(d)}
+                  onClick={() => selectDate(d)}
                   className={cn(
                     "aspect-square rounded-lg text-sm transition-colors",
                     disabled && "text-muted-foreground/30",
@@ -233,30 +343,85 @@ function ScheduleInner() {
             {selectedDate ? selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }) : "Pick a date"}
           </p>
           <div className="mt-4 space-y-2.5">
-            {SLOTS.map((s, i) => (
-              <button
-                key={i}
-                onClick={() => setSlot(i)}
-                className={cn(
-                  "flex w-full items-center justify-between rounded-xl border p-3.5 text-left transition-colors",
-                  slot === i ? "border-electric/60 bg-electric/10" : "border-border/60 bg-secondary/30 hover:border-electric/40"
-                )}
-              >
-                <div>
-                  <p className="text-sm font-medium">{s.label}</p>
-                  <p className={cn("text-xs", s.optimal ? "text-electric-soft" : "text-muted-foreground")}>
-                    {s.optimal && "✦ "}{s.note}
-                  </p>
-                </div>
-                {slot === i && <CheckCircle2 className="size-5 text-electric-soft" />}
-              </button>
-            ))}
+            {!selectedDate ? (
+              <div className="rounded-xl border border-dashed border-border/60 bg-secondary/20 p-6 text-center text-xs text-muted-foreground">
+                Select a date to see available time slots.
+              </div>
+            ) : slotsLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-[68px] w-full rounded-xl" />
+              ))
+            ) : slotsError ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-center text-xs text-destructive">
+                {(slotsErr as { message?: string })?.message ??
+                  "Couldn't load availability."}
+              </div>
+            ) : slots.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border/60 bg-secondary/20 p-6 text-center text-xs text-muted-foreground">
+                No available slots for this day. Try another date or adjust the panel.
+              </div>
+            ) : (
+              slots.map((s, i) => {
+                const fullyAvailable =
+                  s.total_interviewers > 0 &&
+                  s.available_count === s.total_interviewers;
+                const note = s.is_optimal
+                  ? "High interviewer overlap"
+                  : fullyAvailable
+                  ? "Fully available"
+                  : `${s.available_count} of ${s.total_interviewers} interviewer${s.total_interviewers === 1 ? "" : "s"} available`;
+                return (
+                  <button
+                    key={s.start_at}
+                    onClick={() => setSlot(i)}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-xl border p-3.5 text-left transition-colors",
+                      slot === i ? "border-electric/60 bg-electric/10" : "border-border/60 bg-secondary/30 hover:border-electric/40"
+                    )}
+                  >
+                    <div>
+                      <p className="text-sm font-medium">
+                        {formatTime(s.start_at)} — {formatTime(s.end_at)}
+                      </p>
+                      <p className={cn("text-xs", s.is_optimal ? "text-electric-soft" : "text-muted-foreground")}>
+                        {s.is_optimal && "✦ "}{note}
+                      </p>
+                    </div>
+                    {slot === i && <CheckCircle2 className="size-5 text-electric-soft" />}
+                  </button>
+                );
+              })
+            )}
           </div>
 
-          <div className="mt-5 flex items-center gap-2 rounded-xl border border-border/60 bg-secondary/30 p-3 text-sm">
-            <Video className="size-4 text-electric-soft" />
-            <span>Zoom Meeting</span>
-            <span className="text-xs text-muted-foreground">(auto-generated)</span>
+          <div className="mt-5 space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Meeting platform
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {PLATFORM_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setPlatformChoice(opt.value)}
+                  className={cn(
+                    "flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-medium transition-colors",
+                    platform === opt.value
+                      ? "border-electric/60 bg-electric/10 text-foreground"
+                      : "border-border/60 bg-secondary/30 text-muted-foreground hover:border-electric/40 hover:text-foreground"
+                  )}
+                >
+                  <Video className="size-4 text-electric-soft" />
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {platform === InterviewPlatform.GOOGLE_MEET
+                ? googleConnected
+                  ? "A Google Meet link will be generated automatically."
+                  : "Connect a Google account in Settings to generate the Meet link."
+                : "A Zoom meeting link will be generated automatically."}
+            </p>
           </div>
 
           <Button variant="brand" className="mt-5 w-full" onClick={schedule} disabled={create.isPending}>
@@ -268,6 +433,85 @@ function ScheduleInner() {
           </p>
         </div>
       </div>
+
+      <ConnectAccountDialog
+        state={connectState}
+        onOpenChange={(open) => !open && setConnectState(null)}
+        onConnectGoogle={() =>
+          connectGoogle.mutate(undefined, {
+            onSuccess: () => {
+              toast.success(
+                "Opened Google sign-in in a new tab. Approve access, then schedule again."
+              );
+              setConnectState(null);
+            },
+            onError: (e) => toast.error((e as Error).message),
+          })
+        }
+        connecting={connectGoogle.isPending}
+        onOpenSettings={() => {
+          setConnectState(null);
+          router.push("/settings");
+        }}
+      />
     </div>
+  );
+}
+
+function ConnectAccountDialog({
+  state,
+  onOpenChange,
+  onConnectGoogle,
+  connecting,
+  onOpenSettings,
+}: {
+  state: { provider: string; message?: string } | null;
+  onOpenChange: (open: boolean) => void;
+  onConnectGoogle: () => void;
+  connecting: boolean;
+  onOpenSettings: () => void;
+}) {
+  const isGoogle = state?.provider === InterviewPlatform.GOOGLE_MEET;
+  const accountLabel = isGoogle ? "Google" : "Zoom";
+  const meetingLabel = state ? PLATFORM_LABELS[state.provider] ?? state.provider : "";
+
+  return (
+    <Dialog open={!!state} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <div className="flex items-center gap-2.5">
+            <span className="grid size-9 place-items-center rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400">
+              <TriangleAlert className="size-4" />
+            </span>
+            <DialogTitle>Connect {accountLabel} to continue</DialogTitle>
+          </div>
+          <DialogDescription>
+            {state?.message
+              ? state.message
+              : `Scheduling a ${meetingLabel} interview needs a connected ${accountLabel} account so we can generate the meeting link automatically.`}
+          </DialogDescription>
+        </DialogHeader>
+
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="ghost">Cancel</Button>
+          </DialogClose>
+          {isGoogle ? (
+            <Button variant="brand" onClick={onConnectGoogle} disabled={connecting}>
+              {connecting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Link2 className="size-4" />
+              )}
+              Connect Google
+            </Button>
+          ) : (
+            <Button variant="brand" onClick={onOpenSettings}>
+              <Link2 className="size-4" /> Open integration settings
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
