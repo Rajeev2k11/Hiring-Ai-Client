@@ -115,6 +115,23 @@ export default function CreateJobPage() {
         <span className="text-electric-soft">Create New Job</span>
       </nav>
 
+      {/* AI Composer promo — the new default flow */}
+      <Link
+        href="/jobs/new/ai"
+        className="mb-6 flex items-center gap-3 rounded-2xl border border-electric/30 bg-electric/5 px-5 py-4 transition-colors hover:border-electric/50"
+      >
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-gradient text-white">
+          <Sparkles className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold">Try the AI Job Composer</p>
+          <p className="truncate text-xs text-muted-foreground">
+            Describe your need in one line — AI asks a few questions and writes the whole post.
+          </p>
+        </div>
+        <span className="shrink-0 text-xs font-medium text-electric-soft">Open →</span>
+      </Link>
+
       <div className="grid gap-8 lg:grid-cols-[1.6fr_1fr]">
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight">Configure Job Opening</h1>

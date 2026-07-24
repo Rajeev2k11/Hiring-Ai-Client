@@ -4,6 +4,8 @@ import type {
   MatchRun,
   MatchRunCreateInput,
   ParsedRequirements,
+  PoolCandidate,
+  ShortlistItem,
 } from "@/types";
 
 /**
@@ -52,5 +54,17 @@ export const matchingService = {
     return api.patch<JobCandidateMatch>(`recruiter/matches/${matchId}/status`, {
       status,
     });
+  },
+
+  /** Import a discovered match into the talent pool — POST .../add-to-pool. */
+  addToPool(matchId: string): Promise<PoolCandidate> {
+    return api.post<PoolCandidate>(`recruiter/matches/${matchId}/add-to-pool`);
+  },
+
+  /** Cross-job shortlist — GET /recruiter/shortlist?status=SAVED|CONTACTED. */
+  shortlist(status = "SAVED"): Promise<ShortlistItem[]> {
+    return api.get<ShortlistItem[]>(
+      `recruiter/shortlist?status=${encodeURIComponent(status)}`
+    );
   },
 };

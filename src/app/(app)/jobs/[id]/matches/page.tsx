@@ -6,10 +6,13 @@ import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   Download,
+  ExternalLink,
   Loader2,
+  Mail,
   Sparkles,
   Wand2,
   Users,
+  UserPlus,
   ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -25,6 +28,7 @@ import { ScoreRing } from "@/components/shared/ScoreRing";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { useJob } from "@/hooks/useJobs";
 import {
+  useAddMatchToPool,
   useJobMatches,
   useMatchRun,
   useParseRequirements,
@@ -54,6 +58,13 @@ const SCORE_FILTERS = [
   { label: "80+", value: 80 },
 ];
 
+const STATUS_TABS = [
+  { label: "Active", value: "" },
+  { label: "Saved", value: "SAVED" },
+  { label: "Contacted", value: "CONTACTED" },
+  { label: "Rejected", value: "REJECTED" },
+];
+
 export default function JobMatchesPage() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
@@ -61,6 +72,7 @@ export default function JobMatchesPage() {
   const { data: job } = useJob(id);
   const [providers, setProviders] = useState<string[]>(["internal"]);
   const [minScore, setMinScore] = useState(0);
+  const [statusTab, setStatusTab] = useState(""); // "" = Active (non-rejected)
   const [runId, setRunId] = useState<string | null>(null);
 
   const parse = useParseRequirements();
@@ -68,8 +80,10 @@ export default function JobMatchesPage() {
   const { data: run } = useMatchRun(runId);
   const { data: matches, isLoading: matchesLoading } = useJobMatches(id, {
     min_score: minScore || undefined,
+    status: statusTab || undefined,
   });
   const updateStatus = useUpdateMatchStatus(id);
+  const addToPool = useAddMatchToPool(id);
 
   const requirements = job?.parsed_requirements ?? null;
   const running =
@@ -207,16 +221,36 @@ export default function JobMatchesPage() {
       </div>
 
       {/* Results */}
-      <div className="mt-8 flex items-center justify-between">
-        <h2 className="font-display text-lg font-semibold">
-          Ranked candidates
-          {matches?.length ? (
-            <span className="ml-2 text-sm font-normal text-muted-foreground">
-              {matches.length}
-            </span>
-          ) : null}
-        </h2>
-        <div className="flex gap-1.5">
+      <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <h2 className="font-display text-lg font-semibold">
+            {STATUS_TABS.find((t) => t.value === statusTab)?.label === "Active"
+              ? "Candidates"
+              : STATUS_TABS.find((t) => t.value === statusTab)?.label}
+            {matches?.length ? (
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                {matches.length}
+              </span>
+            ) : null}
+          </h2>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {/* Status destination tabs */}
+          {STATUS_TABS.map((t) => (
+            <button
+              key={t.value}
+              onClick={() => setStatusTab(t.value)}
+              className={cn(
+                "rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors",
+                statusTab === t.value
+                  ? "border-electric/50 bg-electric/10 text-electric-soft"
+                  : "border-border/60 text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+          <span className="mx-1 w-px bg-border/60" />
           {SCORE_FILTERS.map((f) => (
             <button
               key={f.value}
@@ -241,16 +275,30 @@ export default function JobMatchesPage() {
             <Skeleton className="h-28 w-full" />
           </>
         ) : !matches?.length ? (
-          <EmptyState
-            icon={Users}
-            title="No matches yet"
-            description="Run AI matching to rank your talent pool against this role. Add candidates in the Talent Pool first."
-            action={
-              <Button asChild variant="outline" size="sm">
-                <Link href="/pool">Go to Talent Pool</Link>
-              </Button>
-            }
-          />
+          statusTab ? (
+            <EmptyState
+              icon={Users}
+              title={`No ${STATUS_TABS.find((t) => t.value === statusTab)?.label.toLowerCase()} candidates`}
+              description={
+                statusTab === "SAVED"
+                  ? "Candidates you Save will appear here."
+                  : statusTab === "CONTACTED"
+                    ? "Candidates you mark as Contacted will appear here."
+                    : "Candidates you Reject are moved here, out of your active list."
+              }
+            />
+          ) : (
+            <EmptyState
+              icon={Users}
+              title="No matches yet"
+              description="Run AI matching to rank your talent pool against this role. Add candidates in the Talent Pool first."
+              action={
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/pool">Go to Talent Pool</Link>
+                </Button>
+              }
+            />
+          )
         ) : (
           matches.map((m) => (
             <MatchCard
@@ -267,7 +315,14 @@ export default function JobMatchesPage() {
                   }
                 )
               }
+              onAddToPool={() =>
+                addToPool.mutate(m.id, {
+                  onSuccess: () => toast.success(`Added ${m.name} to your talent pool`),
+                  onError: (e) => toast.error((e as Error).message || "Could not add to pool"),
+                })
+              }
               pending={updateStatus.isPending}
+              addingToPool={addToPool.isPending}
             />
           ))
         )}
@@ -377,14 +432,19 @@ function MatchProgress({ run }: { run: { status: string; evaluated_count: number
 function MatchCard({
   match,
   onStatus,
+  onAddToPool,
   pending,
+  addingToPool,
 }: {
   match: JobCandidateMatch;
   onStatus: (status: string) => void;
+  onAddToPool: () => void;
   pending: boolean;
+  addingToPool: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const rec = match.recommendation?.toLowerCase();
+  const external = !match.candidate_id; // discovered from an external source
 
   return (
     <div className="rounded-2xl border border-border/70 bg-card/40 p-4 transition-colors hover:border-electric/30">
@@ -398,7 +458,29 @@ function MatchCard({
               <StatusBadge value={rec} meta={RECOMMENDATION_META} />
             )}
             <StatusBadge value={match.status} meta={MATCH_STATUS_META} />
-            <Badge tone="neutral">{match.source}</Badge>
+            {external ? (
+              <Badge tone="plasma">Discovered · {match.source}</Badge>
+            ) : (
+              <Badge tone="neutral">{match.source}</Badge>
+            )}
+            {external && match.profile_url && (
+              <a
+                href={match.profile_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs font-medium text-electric-soft hover:underline"
+              >
+                <ExternalLink className="size-3" /> Profile
+              </a>
+            )}
+            {match.email && (
+              <a
+                href={`mailto:${match.email}`}
+                className="inline-flex items-center gap-1 text-xs font-medium text-electric-soft hover:underline"
+              >
+                <Mail className="size-3" /> {match.email}
+              </a>
+            )}
           </div>
 
           {match.summary && (
@@ -459,10 +541,32 @@ function MatchCard({
 
         {/* Actions */}
         <div className="flex shrink-0 flex-col gap-1.5">
-          <Button size="sm" variant="brand" disabled={pending} onClick={() => onStatus("SAVED")}>
+          {external && (
+            <Button size="sm" variant="brand" disabled={addingToPool} onClick={onAddToPool}>
+              {addingToPool ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
+              Add to pool
+            </Button>
+          )}
+          <Button size="sm" variant={external ? "outline" : "brand"} disabled={pending} onClick={() => onStatus("SAVED")}>
             Save
           </Button>
-          <Button size="sm" variant="outline" disabled={pending} onClick={() => onStatus("CONTACTED")}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pending}
+            onClick={() => {
+              onStatus("CONTACTED");
+              // Open the real reach-out channel: email if we have one, else
+              // the candidate's public profile (platform DM / contact form).
+              if (match.email) {
+                window.location.href = `mailto:${match.email}?subject=${encodeURIComponent(
+                  "Opportunity — let's connect"
+                )}`;
+              } else if (match.profile_url) {
+                window.open(match.profile_url, "_blank");
+              }
+            }}
+          >
             Contact
           </Button>
           <Button size="sm" variant="ghost" disabled={pending} onClick={() => onStatus("REJECTED")}>

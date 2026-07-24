@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Bookmark,
   Briefcase,
   CalendarCheck,
   FileText,
@@ -22,6 +23,7 @@ export const APP_NAV: AppNavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Jobs", href: "/jobs", icon: Briefcase },
   { label: "Talent Pool", href: "/pool", icon: Sparkles },
+  { label: "Shortlist", href: "/shortlist", icon: Bookmark },
   { label: "Candidates", href: "/candidates", icon: Users },
   { label: "Interviews", href: "/interviews", icon: CalendarCheck },
   { label: "Analytics", href: "/analytics", icon: BarChart3 },

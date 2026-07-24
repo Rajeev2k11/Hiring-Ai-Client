@@ -62,7 +62,7 @@ export default function JobsPage() {
         description="Manage and track your active job listings across the organization."
         actions={
           <Button asChild variant="brand">
-            <Link href="/jobs/new">
+            <Link href="/jobs/new/ai">
               <Plus className="size-4" /> Create Job
             </Link>
           </Button>
@@ -120,7 +120,7 @@ export default function JobsPage() {
             description="Create your first job and let the agents start sourcing."
             action={
               <Button asChild variant="brand">
-                <Link href="/jobs/new">
+                <Link href="/jobs/new/ai">
                   Create Job <ArrowRight className="size-4" />
                 </Link>
               </Button>

@@ -31,7 +31,9 @@ export function useCreateJob() {
     mutationFn: (payload: JobCreateInput) => jobsService.create(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.jobs.all });
-      qc.invalidateQueries({ queryKey: queryKeys.dashboard.stats });
+      // Whole dashboard prefix: stats AND the jobs table (every status tab),
+      // so a freshly published job appears in the list without a reload.
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
     },
   });
 }
@@ -44,7 +46,7 @@ export function useUpdateJob() {
     onSuccess: (job) => {
       qc.invalidateQueries({ queryKey: queryKeys.jobs.all });
       qc.invalidateQueries({ queryKey: queryKeys.jobs.detail(job.id) });
-      qc.invalidateQueries({ queryKey: queryKeys.dashboard.stats });
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
     },
   });
 }

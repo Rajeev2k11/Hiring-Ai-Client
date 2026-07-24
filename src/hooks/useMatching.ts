@@ -61,3 +61,23 @@ export function useUpdateMatchStatus(jobId: string) {
       qc.invalidateQueries({ queryKey: ["matching", "candidates", jobId] }),
   });
 }
+
+/** Cross-job shortlist (saved / contacted candidates across all jobs). */
+export function useShortlist(status = "SAVED") {
+  return useQuery({
+    queryKey: queryKeys.matching.shortlist(status),
+    queryFn: () => matchingService.shortlist(status),
+  });
+}
+
+/** Import a discovered match into the talent pool. */
+export function useAddMatchToPool(jobId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (matchId: string) => matchingService.addToPool(matchId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["matching", "candidates", jobId] });
+      qc.invalidateQueries({ queryKey: ["pool"] });
+    },
+  });
+}

@@ -71,3 +71,20 @@ export interface ParsedRequirements {
 export interface MatchStatusUpdateInput {
   status: MatchStatus | string;
 }
+
+/** app/schemas/recruiter/match.py → ShortlistItemResponse (cross-job saved). */
+export interface ShortlistItem {
+  id: string;
+  candidate_id: string | null;
+  name: string;
+  email: string | null;
+  source: string;
+  score: number;
+  recommendation: string | null;
+  summary: string | null;
+  profile_url: string | null;
+  status: string;
+  created_at: ISODateString;
+  job_id: string;
+  job_title: string;
+}

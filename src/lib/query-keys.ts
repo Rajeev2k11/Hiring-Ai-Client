@@ -7,6 +7,7 @@ export const queryKeys = {
     me: ["auth", "me"] as const,
   },
   dashboard: {
+    all: ["dashboard"] as const,
     stats: ["dashboard", "stats"] as const,
     jobs: (status?: string) => ["dashboard", "jobs", { status }] as const,
   },
@@ -52,6 +53,7 @@ export const queryKeys = {
     candidates: (jobId: string, filters: { min_score?: number; status?: string }) =>
       ["matching", "candidates", jobId, filters] as const,
     match: (matchId: string) => ["matching", "match", matchId] as const,
+    shortlist: (status: string) => ["matching", "shortlist", status] as const,
   },
   pool: {
     list: (source_type?: string) => ["pool", "list", { source_type }] as const,
