@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -31,6 +31,7 @@ import {
   useAddMatchToPool,
   useJobMatches,
   useMatchRun,
+  useMatchProviders,
   useParseRequirements,
   useStartMatch,
   useUpdateMatchStatus,
@@ -44,18 +45,44 @@ import {
   type Tone,
 } from "@/constants/status";
 import { SourcingRunStatus } from "@/types";
-import type { JobCandidateMatch, ParsedRequirements, ScoreBreakdown } from "@/types";
+import type {
+  JobCandidateMatch,
+  MatchProviderInfo,
+  ParsedRequirements,
+  ScoreBreakdown,
+} from "@/types";
 
-const PROVIDERS = [
-  { key: "internal", label: "Talent Pool" },
-  { key: "github", label: "GitHub" },
-  { key: "portfolio", label: "Portfolio" },
+const FALLBACK_PROVIDERS: MatchProviderInfo[] = [
+  { key: "internal", name: "Hiring OS Talent Pool", category: "Internal", tos_class: "OWNED_DATA", available: true, reason: null },
+  ...[
+    ["github", "GitHub", "Engineering"],
+    ["gitlab", "GitLab", "Engineering"],
+    ["stackoverflow", "Stack Overflow", "Engineering"],
+    ["devto", "DEV.to", "Engineering"],
+    ["hashnode", "Hashnode", "Engineering"],
+    ["kaggle", "Kaggle", "Data & ML"],
+    ["behance", "Behance", "Design"],
+    ["dribbble", "Dribbble", "Design"],
+    ["reddit", "Reddit", "Communities"],
+    ["hackernews", "Hacker News", "Communities"],
+    ["mastodon", "Mastodon", "Communities"],
+    ["bluesky", "Bluesky", "Communities"],
+    ["orcid", "ORCID", "Research"],
+    ["google_scholar", "Google Scholar", "Research"],
+  ].map(([key, name, category]) => ({
+    key,
+    name,
+    category,
+    tos_class: "EXTERNAL",
+    available: false,
+    reason: "Could not load live provider availability",
+  })),
 ];
 
 const SCORE_FILTERS = [
-  { label: "All", value: 0 },
-  { label: "60+", value: 60 },
+  { label: "70+", value: 70 },
   { label: "80+", value: 80 },
+  { label: "90+", value: 90 },
 ];
 
 const STATUS_TABS = [
@@ -65,13 +92,19 @@ const STATUS_TABS = [
   { label: "Rejected", value: "REJECTED" },
 ];
 
+const QUALIFIED_MATCH_TARGET = 10;
+const CANDIDATE_SEARCH_BUDGET = 200;
+
 export default function JobMatchesPage() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
 
   const { data: job } = useJob(id);
+  const { data: liveProviders } = useMatchProviders();
   const [providers, setProviders] = useState<string[]>(["internal"]);
-  const [minScore, setMinScore] = useState(0);
+  const initializedProvidersForJob = useRef<string | null>(null);
+  const skipNextProviderPersist = useRef(false);
+  const [minScore, setMinScore] = useState(70);
   const [statusTab, setStatusTab] = useState(""); // "" = Active (non-rejected)
   const [runId, setRunId] = useState<string | null>(null);
 
@@ -84,6 +117,61 @@ export default function JobMatchesPage() {
   });
   const updateStatus = useUpdateMatchStatus(id);
   const addToPool = useAddMatchToPool(id);
+
+  const providerCatalog = liveProviders?.length ? liveProviders : FALLBACK_PROVIDERS;
+  const providerGroups = useMemo(() => {
+    const groups = new Map<string, MatchProviderInfo[]>();
+    for (const provider of providerCatalog) {
+      const current = groups.get(provider.category) ?? [];
+      current.push(provider);
+      groups.set(provider.category, current);
+    }
+    return [...groups.entries()];
+  }, [providerCatalog]);
+  const availableProviderKeys = useMemo(
+    () => providerCatalog.filter((provider) => provider.available).map((provider) => provider.key),
+    [providerCatalog]
+  );
+
+  // Start new jobs with every currently available source selected, and retain
+  // the recruiter's explicit choice for this job during the browser session.
+  useEffect(() => {
+    if (initializedProvidersForJob.current === id || !liveProviders?.length) return;
+    const available = new Set(
+      liveProviders.filter((provider) => provider.available).map((provider) => provider.key)
+    );
+    let initial = [...available];
+    try {
+      const saved = window.sessionStorage.getItem(`hiring-os:match-sources:${id}`);
+      if (saved !== null) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          initial = parsed.filter((key): key is string => typeof key === "string" && available.has(key));
+        }
+      }
+    } catch {
+      // Storage is an optional convenience; live availability remains the source of truth.
+    }
+    skipNextProviderPersist.current = true;
+    initializedProvidersForJob.current = id;
+    setProviders(initial);
+  }, [id, liveProviders]);
+
+  useEffect(() => {
+    if (initializedProvidersForJob.current !== id) return;
+    if (skipNextProviderPersist.current) {
+      skipNextProviderPersist.current = false;
+      return;
+    }
+    try {
+      window.sessionStorage.setItem(
+        `hiring-os:match-sources:${id}`,
+        JSON.stringify(providers)
+      );
+    } catch {
+      // Ignore unavailable/private storage and continue with in-memory state.
+    }
+  }, [id, providers]);
 
   const requirements = job?.parsed_requirements ?? null;
   const running =
@@ -125,10 +213,14 @@ export default function JobMatchesPage() {
     try {
       const started = await startMatch.mutateAsync({
         jobId: id,
-        payload: { providers, limit: 50 },
+        payload: {
+          providers,
+          limit: CANDIDATE_SEARCH_BUDGET,
+          target_count: QUALIFIED_MATCH_TARGET,
+        },
       });
       setRunId(started.id);
-      toast.success("AI match run started — ranking candidates…");
+      toast.success("AI search started — targeting at least 10 qualified matches…");
     } catch (e) {
       toast.error((e as Error).message || "Could not start match run.");
     }
@@ -176,30 +268,69 @@ export default function JobMatchesPage() {
       {/* Run controls */}
       <div className="mt-5 rounded-2xl border border-border/70 bg-card/40 p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold">Sources</p>
-            <p className="text-xs text-muted-foreground">
-              Where to look for candidates.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {PROVIDERS.map((p) => {
-                const active = providers.includes(p.key);
-                return (
-                  <button
-                    key={p.key}
-                    onClick={() => toggleProvider(p.key)}
-                    className={cn(
-                      "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                      active
-                        ? "border-electric/50 bg-electric/10 text-electric-soft"
-                        : "border-border/60 text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    {p.label}
-                  </button>
-                );
-              })}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold">Candidate sources</p>
+                <p className="text-xs text-muted-foreground">
+                  Only selected platforms are searched. Up to 200 profiles are checked to target 10+ results; anything below 70% stays excluded.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setProviders(availableProviderKeys)}
+                  className="text-xs font-medium text-electric-soft hover:text-electric"
+                >
+                  Select all available
+                </button>
+                <span className="text-border">·</span>
+                <button
+                  type="button"
+                  onClick={() => setProviders([])}
+                  className="text-xs font-medium text-muted-foreground hover:text-foreground"
+                >
+                  Clear
+                </button>
+              </div>
             </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {providerGroups.map(([category, sources]) => (
+                <div key={category} className="rounded-xl border border-border/50 bg-secondary/20 p-3">
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {category}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {sources.map((source) => {
+                      const active = providers.includes(source.key);
+                      return (
+                        <button
+                          key={source.key}
+                          type="button"
+                          disabled={!source.available}
+                          title={source.available ? `Search ${source.name}` : source.reason ?? "Provider unavailable"}
+                          onClick={() => toggleProvider(source.key)}
+                          className={cn(
+                            "rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                            active
+                              ? "border-electric/50 bg-electric/10 text-electric-soft"
+                              : "border-border/60 text-muted-foreground hover:text-foreground",
+                            !source.available && "cursor-not-allowed border-dashed opacity-45"
+                          )}
+                        >
+                          {source.name}
+                          {!source.available ? " · setup" : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              {providers.length} source{providers.length === 1 ? "" : "s"} selected. Disabled sources show the required setup on hover.
+            </p>
           </div>
           <Button
             variant="brand"
@@ -290,8 +421,8 @@ export default function JobMatchesPage() {
           ) : (
             <EmptyState
               icon={Users}
-              title="No matches yet"
-              description="Run AI matching to rank your talent pool against this role. Add candidates in the Talent Pool first."
+              title="No 70%+ matches yet"
+              description="Choose the internal pool and/or external platforms, then run AI matching. Only candidates scoring 70–100% are shown."
               action={
                 <Button asChild variant="outline" size="sm">
                   <Link href="/pool">Go to Talent Pool</Link>
@@ -401,7 +532,7 @@ function Meta({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MatchProgress({ run }: { run: { status: string; evaluated_count: number; total_candidates: number; selected_count: number } }) {
+function MatchProgress({ run }: { run: { status: string; evaluated_count: number; total_candidates: number; selected_count: number; error?: string | null } }) {
   const pct = run.total_candidates
     ? Math.round((run.evaluated_count / run.total_candidates) * 100)
     : run.status === SourcingRunStatus.COMPLETED
@@ -425,6 +556,11 @@ function MatchProgress({ run }: { run: { status: string; evaluated_count: number
           style={{ width: `${pct}%` }}
         />
       </div>
+      {run.status === SourcingRunStatus.COMPLETED && run.selected_count < QUALIFIED_MATCH_TARGET ? (
+        <p className="mt-2 text-xs text-amber-300">
+          {run.error ?? `Only ${run.selected_count} verified profiles cleared 70%; no lower-scoring profiles were added.`}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -7,6 +7,15 @@ import { queryKeys } from "@/lib/query-keys";
 import { SourcingRunStatus } from "@/types";
 import type { MatchRunCreateInput } from "@/types";
 
+/** Selectable internal/external source catalog with live availability. */
+export function useMatchProviders() {
+  return useQuery({
+    queryKey: ["matching", "providers"],
+    queryFn: () => matchingService.providers(),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 /** Poll a match run while it's in flight (mirrors the backend worker). */
 export function useMatchRun(runId: string | null, enabled = true) {
   return useQuery({

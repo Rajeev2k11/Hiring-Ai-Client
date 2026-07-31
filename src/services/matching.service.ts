@@ -3,6 +3,7 @@ import type {
   JobCandidateMatch,
   MatchRun,
   MatchRunCreateInput,
+  MatchProviderInfo,
   ParsedRequirements,
   PoolCandidate,
   ShortlistItem,
@@ -13,6 +14,11 @@ import type {
  * Company-scoped recruiter routes; the company is derived from the token.
  */
 export const matchingService = {
+  /** Live selectable source catalog + configuration status. */
+  providers(): Promise<MatchProviderInfo[]> {
+    return api.get<MatchProviderInfo[]>("recruiter/matching/providers");
+  },
+
   /** JD -> structured requirements — POST /recruiter/jobs/{id}/parse-requirements. */
   parseRequirements(jobId: string): Promise<ParsedRequirements> {
     return api.post<ParsedRequirements>(

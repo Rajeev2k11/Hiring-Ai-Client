@@ -10,8 +10,19 @@ export enum MatchStatus {
 
 /** POST /recruiter/jobs/{id}/match → MatchRunCreate */
 export interface MatchRunCreateInput {
-  providers?: string[]; // e.g. ["internal", "github", "portfolio"]
-  limit?: number; // max candidates to evaluate, default 50
+  providers?: string[]; // e.g. ["internal", "github", "gitlab"]
+  limit?: number; // max candidates to evaluate, default 200
+  target_count?: number; // desired minimum count at the 70%+ quality gate
+}
+
+/** GET /recruiter/matching/providers */
+export interface MatchProviderInfo {
+  key: string;
+  name: string;
+  category: string;
+  tos_class: string;
+  available: boolean;
+  reason: string | null;
 }
 
 /** app/schemas/recruiter/match.py → MatchRunResponse (reuses SourcingRunStatus). */
