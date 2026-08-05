@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import {
   Upload,
   Link2,
+  Linkedin,
   Loader2,
   Users,
   MapPin,
@@ -20,6 +21,7 @@ import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { usePool, useUploadPoolResume, useEnrichUrl } from "@/hooks/usePool";
+import { LinkedInImportModal } from "@/components/app/LinkedInImportModal";
 import { cn } from "@/lib/utils";
 import type { Tone } from "@/constants/status";
 import type { CandidateSkill, PoolCandidate } from "@/types";
@@ -37,6 +39,7 @@ const SOURCE_META: Record<string, { label: string; tone: Tone }> = {
   PORTFOLIO: { label: "Portfolio", tone: "plasma" },
   PUBLIC_WEB: { label: "Web", tone: "neutral" },
   ATS_IMPORT: { label: "ATS", tone: "neutral" },
+  RECRUITER_PROVIDED: { label: "Recruiter added", tone: "success" },
 };
 
 export default function TalentPoolPage() {
@@ -46,6 +49,7 @@ export default function TalentPoolPage() {
   const enrich = useEnrichUrl();
   const fileRef = useRef<HTMLInputElement>(null);
   const [url, setUrl] = useState("");
+  const [linkedInOpen, setLinkedInOpen] = useState(false);
 
   const onFile = async (file?: File | null) => {
     if (!file) return;
@@ -76,7 +80,14 @@ export default function TalentPoolPage() {
         eyebrow="Sourcing"
         title="Talent Pool"
         description="Build your searchable candidate database. Upload résumés or import from a URL — the AI extracts a structured profile and makes them matchable."
+        actions={
+          <Button variant="outline" onClick={() => setLinkedInOpen(true)}>
+            <Linkedin className="size-4" /> Add LinkedIn candidate manually
+          </Button>
+        }
       />
+
+      <LinkedInImportModal open={linkedInOpen} onClose={() => setLinkedInOpen(false)} />
 
       {/* Ingestion */}
       <div className="mt-6 grid gap-4 sm:grid-cols-2">

@@ -23,6 +23,8 @@ export interface MatchProviderInfo {
   tos_class: string;
   available: boolean;
   reason: string | null;
+  /** True when this source returns synthetic test profiles (never real people). */
+  synthetic?: boolean;
 }
 
 /** app/schemas/recruiter/match.py → MatchRunResponse (reuses SourcingRunStatus). */

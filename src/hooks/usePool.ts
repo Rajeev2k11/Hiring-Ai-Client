@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { poolService } from "@/services";
 import { queryKeys } from "@/lib/query-keys";
+import type { LinkedInManualImportInput } from "@/types";
 
 /** List the company's sourced pool candidates. */
 export function usePool(sourceType?: string) {
@@ -18,6 +19,15 @@ export function useUploadPoolResume() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (file: File) => poolService.uploadResume(file),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pool"] }),
+  });
+}
+
+/** Import a recruiter-entered, consented LinkedIn profile into the pool. */
+export function useImportLinkedInCandidate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: LinkedInManualImportInput) => poolService.importLinkedIn(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pool"] }),
   });
 }

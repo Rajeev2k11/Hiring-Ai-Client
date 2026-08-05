@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Download,
   ExternalLink,
+  Linkedin,
   Loader2,
   Mail,
   Sparkles,
@@ -54,6 +55,14 @@ import type {
 
 const FALLBACK_PROVIDERS: MatchProviderInfo[] = [
   { key: "internal", name: "Hiring OS Talent Pool", category: "Internal", tos_class: "OWNED_DATA", available: true, reason: null },
+  {
+    key: "linkedin",
+    name: "LinkedIn",
+    category: "Professional Network",
+    tos_class: "APPROVED_PARTNER_API",
+    available: false,
+    reason: "LinkedIn Partner API approval required.",
+  },
   ...[
     ["github", "GitHub", "Engineering"],
     ["gitlab", "GitLab", "Engineering"],
@@ -312,7 +321,7 @@ export default function JobMatchesPage() {
                           title={source.available ? `Search ${source.name}` : source.reason ?? "Provider unavailable"}
                           onClick={() => toggleProvider(source.key)}
                           className={cn(
-                            "rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors",
                             active
                               ? "border-electric/50 bg-electric/10 text-electric-soft"
                               : "border-border/60 text-muted-foreground hover:text-foreground",
@@ -320,6 +329,13 @@ export default function JobMatchesPage() {
                           )}
                         >
                           {source.name}
+                          {/* Synthetic sources are always labelled so fabricated
+                              profiles can never look like real candidates. */}
+                          {source.synthetic && (
+                            <span className="rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+                              Test data
+                            </span>
+                          )}
                           {!source.available ? " · setup" : ""}
                         </button>
                       );
@@ -581,6 +597,11 @@ function MatchCard({
   const [open, setOpen] = useState(false);
   const rec = match.recommendation?.toLowerCase();
   const external = !match.candidate_id; // discovered from an external source
+  const isLinkedIn = match.source?.toLowerCase() === "linkedin";
+  // Synthetic fixture profiles always live on the non-production "linkedin.mock"
+  // host, so a fabricated candidate is always identifiable and labelled. Real
+  // approved-partner data is on linkedin.com and is never flagged.
+  const isSynthetic = (match.profile_url ?? "").includes("linkedin.mock");
 
   return (
     <div className="rounded-2xl border border-border/70 bg-card/40 p-4 transition-colors hover:border-electric/30">
@@ -594,10 +615,18 @@ function MatchCard({
               <StatusBadge value={rec} meta={RECOMMENDATION_META} />
             )}
             <StatusBadge value={match.status} meta={MATCH_STATUS_META} />
-            {external ? (
+            {isLinkedIn ? (
+              <Badge tone="info">
+                <Linkedin className="mr-1 inline size-3" />
+                LinkedIn
+              </Badge>
+            ) : external ? (
               <Badge tone="plasma">Discovered · {match.source}</Badge>
             ) : (
               <Badge tone="neutral">{match.source}</Badge>
+            )}
+            {isSynthetic && (
+              <Badge tone="warning">Synthetic test data — not a real profile</Badge>
             )}
             {external && match.profile_url && (
               <a
