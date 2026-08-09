@@ -53,39 +53,21 @@ import type {
   ScoreBreakdown,
 } from "@/types";
 
+/**
+ * Shown only when the live provider catalog can't be loaded. Keep it aligned
+ * with the backend allowlist (DISCOVERY_ENABLED_PROVIDERS) — the live
+ * `/recruiter/matching/providers` response is always the source of truth.
+ */
 const FALLBACK_PROVIDERS: MatchProviderInfo[] = [
   { key: "internal", name: "Hiring OS Talent Pool", category: "Internal", tos_class: "OWNED_DATA", available: true, reason: null },
   {
-    key: "linkedin",
-    name: "LinkedIn",
-    category: "Professional Network",
-    tos_class: "APPROVED_PARTNER_API",
-    available: false,
-    reason: "LinkedIn Partner API approval required.",
-  },
-  ...[
-    ["github", "GitHub", "Engineering"],
-    ["gitlab", "GitLab", "Engineering"],
-    ["stackoverflow", "Stack Overflow", "Engineering"],
-    ["devto", "DEV.to", "Engineering"],
-    ["hashnode", "Hashnode", "Engineering"],
-    ["kaggle", "Kaggle", "Data & ML"],
-    ["behance", "Behance", "Design"],
-    ["dribbble", "Dribbble", "Design"],
-    ["reddit", "Reddit", "Communities"],
-    ["hackernews", "Hacker News", "Communities"],
-    ["mastodon", "Mastodon", "Communities"],
-    ["bluesky", "Bluesky", "Communities"],
-    ["orcid", "ORCID", "Research"],
-    ["google_scholar", "Google Scholar", "Research"],
-  ].map(([key, name, category]) => ({
-    key,
-    name,
-    category,
-    tos_class: "EXTERNAL",
+    key: "github",
+    name: "GitHub",
+    category: "Engineering",
+    tos_class: "OFFICIAL_API",
     available: false,
     reason: "Could not load live provider availability",
-  })),
+  },
 ];
 
 const SCORE_FILTERS = [
