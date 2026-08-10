@@ -11,6 +11,7 @@ const COMPANY_PREFIXES = [
   "/jobs",
   "/pool",
   "/shortlist",
+  "/outreach",
   "/candidates",
   "/interviews",
   "/analytics",

@@ -8,6 +8,7 @@ export * from "./useInterviews";
 export * from "./useSourcing";
 export * from "./useMatching";
 export * from "./usePool";
+export * from "./useOutreach";
 export * from "./useAnalytics";
 export * from "./useSettings";
 export * from "./useCompany";

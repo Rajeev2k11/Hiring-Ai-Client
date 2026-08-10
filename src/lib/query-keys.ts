@@ -58,6 +58,14 @@ export const queryKeys = {
   pool: {
     list: (source_type?: string) => ["pool", "list", { source_type }] as const,
   },
+  outreach: {
+    all: ["outreach"] as const,
+    account: ["outreach", "account"] as const,
+    list: (filters: { status?: string; kind?: string; job_id?: string }) =>
+      ["outreach", "list", filters] as const,
+    detail: (id: string) => ["outreach", "detail", id] as const,
+    suppressions: ["outreach", "suppressions"] as const,
+  },
   analytics: {
     overview: ["analytics", "overview"] as const,
   },

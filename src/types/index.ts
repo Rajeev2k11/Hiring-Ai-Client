@@ -9,6 +9,7 @@ export * from "./interview";
 export * from "./sourcing";
 export * from "./match";
 export * from "./pool";
+export * from "./outreach";
 export * from "./analytics";
 export * from "./ai";
 export * from "./settings";

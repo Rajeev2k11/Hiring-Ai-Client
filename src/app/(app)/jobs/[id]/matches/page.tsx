@@ -26,6 +26,7 @@ import { StatusBadge } from "@/components/app/StatusBadge";
 import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { ScoreRing } from "@/components/shared/ScoreRing";
+import { SendOutreachModal } from "@/components/app/SendOutreachModal";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { useJob } from "@/hooks/useJobs";
 import {
@@ -98,6 +99,10 @@ export default function JobMatchesPage() {
   const [minScore, setMinScore] = useState(70);
   const [statusTab, setStatusTab] = useState(""); // "" = Active (non-rejected)
   const [runId, setRunId] = useState<string | null>(null);
+  const [outreachTarget, setOutreachTarget] = useState<{
+    candidateId: string;
+    name: string;
+  } | null>(null);
 
   const parse = useParseRequirements();
   const startMatch = useStartMatch();
@@ -444,6 +449,10 @@ export default function JobMatchesPage() {
                   }
                 )
               }
+              onOutreach={() =>
+                m.candidate_id &&
+                setOutreachTarget({ candidateId: m.candidate_id, name: m.name })
+              }
               onAddToPool={() =>
                 addToPool.mutate(m.id, {
                   onSuccess: () => toast.success(`Added ${m.name} to your talent pool`),
@@ -456,6 +465,14 @@ export default function JobMatchesPage() {
           ))
         )}
       </div>
+
+      <SendOutreachModal
+        open={outreachTarget !== null}
+        onClose={() => setOutreachTarget(null)}
+        jobId={id}
+        candidateId={outreachTarget?.candidateId ?? ""}
+        candidateName={outreachTarget?.name}
+      />
     </div>
   );
 }
@@ -567,12 +584,14 @@ function MatchCard({
   match,
   onStatus,
   onAddToPool,
+  onOutreach,
   pending,
   addingToPool,
 }: {
   match: JobCandidateMatch;
   onStatus: (status: string) => void;
   onAddToPool: () => void;
+  onOutreach: () => void;
   pending: boolean;
   addingToPool: boolean;
 }) {
@@ -702,15 +721,16 @@ function MatchCard({
             variant="outline"
             disabled={pending}
             onClick={() => {
-              onStatus("CONTACTED");
-              // Open the real reach-out channel: email if we have one, else
-              // the candidate's public profile (platform DM / contact form).
-              if (match.email) {
-                window.location.href = `mailto:${match.email}?subject=${encodeURIComponent(
-                  "Opportunity — let's connect"
-                )}`;
+              // Pool/applied candidates get a tracked outreach email; purely
+              // external profiles (no candidate record) have no mailbox to
+              // send to, so fall back to their public profile.
+              if (match.candidate_id) {
+                onOutreach();
               } else if (match.profile_url) {
+                onStatus("CONTACTED");
                 window.open(match.profile_url, "_blank");
+              } else {
+                onStatus("CONTACTED");
               }
             }}
           >

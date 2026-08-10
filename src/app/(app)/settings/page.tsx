@@ -21,6 +21,7 @@ import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app/PageHeader";
 import { Panel } from "@/components/app/Panel";
+import { EmailIntegrationPanel } from "@/components/app/EmailIntegrationPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -157,6 +158,7 @@ export default function SettingsPage() {
         <TabsList className="w-full overflow-x-auto">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="email">Email</TabsTrigger>
           {isAdmin && <TabsTrigger value="team">Team</TabsTrigger>}
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="danger">Danger Zone</TabsTrigger>
@@ -240,6 +242,11 @@ export default function SettingsPage() {
               />
             </div>
           </Panel>
+        </TabsContent>
+
+        {/* ─── Email (outreach mailbox) ─── */}
+        <TabsContent value="email" className="mt-6">
+          <EmailIntegrationPanel />
         </TabsContent>
 
         {/* ─── Team ─── */}

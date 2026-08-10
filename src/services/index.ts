@@ -7,6 +7,7 @@ export { interviewsService } from "./interviews.service";
 export { sourcingService } from "./sourcing.service";
 export { matchingService } from "./matching.service";
 export { poolService } from "./pool.service";
+export { outreachService } from "./outreach.service";
 export { analyticsService } from "./analytics.service";
 export { settingsService } from "./settings.service";
 export { companyService } from "./company.service";
