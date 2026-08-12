@@ -40,6 +40,25 @@ export interface UrlEnrichInput {
 }
 
 /**
+ * PATCH /recruiter/pool/{id} → PoolCandidateUpdateRequest.
+ *
+ * Recruiter corrections to an AI-extracted profile. Every field is optional —
+ * only what is sent gets written.
+ */
+export interface PoolCandidateUpdateInput {
+  name?: string;
+  email?: string | null;
+  phone?: string | null;
+  location?: string | null;
+  current_title?: string | null;
+  current_company?: string | null;
+  experience_years?: number | null;
+  summary?: string | null;
+  skills?: (CandidateSkill | string)[] | null;
+  links?: CandidateLinks | null;
+}
+
+/**
  * POST /recruiter/pool/linkedin-import → LinkedInManualImportRequest.
  *
  * Recruiter-entered, consented profile data. The URL is stored as a reference

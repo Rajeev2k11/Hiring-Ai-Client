@@ -50,3 +50,20 @@ export function useUpdateJob() {
     },
   });
 }
+
+export function useDeleteJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => jobsService.remove(id),
+    onSuccess: (_data, id) => {
+      // The role's pipeline, matches and interviews go with it server-side, so
+      // drop the stale detail entry and refetch everything that counted it.
+      qc.removeQueries({ queryKey: queryKeys.jobs.detail(id) });
+      qc.invalidateQueries({ queryKey: queryKeys.jobs.all });
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+      qc.invalidateQueries({ queryKey: queryKeys.candidates.all });
+      qc.invalidateQueries({ queryKey: queryKeys.interviews.all });
+      qc.invalidateQueries({ queryKey: ["matching"] });
+    },
+  });
+}

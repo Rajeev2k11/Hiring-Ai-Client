@@ -1,5 +1,9 @@
 import { api } from "@/lib/api-fetch";
-import type { LinkedInManualImportInput, PoolCandidate } from "@/types";
+import type {
+  LinkedInManualImportInput,
+  PoolCandidate,
+  PoolCandidateUpdateInput,
+} from "@/types";
 
 /**
  * Candidate talent pool — real backend via the authenticated BFF proxy.
@@ -31,5 +35,18 @@ export const poolService = {
    */
   importLinkedIn(input: LinkedInManualImportInput): Promise<PoolCandidate> {
     return api.post<PoolCandidate>("recruiter/pool/linkedin-import", input);
+  },
+
+  /** Correct an AI-extracted profile — PATCH /recruiter/pool/{id}. */
+  update(id: string, payload: PoolCandidateUpdateInput): Promise<PoolCandidate> {
+    return api.patch<PoolCandidate>(`recruiter/pool/${id}`, payload);
+  },
+
+  /**
+   * Remove a candidate from the pool — DELETE /recruiter/pool/{id}. Rejected
+   * with 409 while the person still has applications in the pipeline.
+   */
+  remove(id: string): Promise<void> {
+    return api.del<void>(`recruiter/pool/${id}`);
   },
 };

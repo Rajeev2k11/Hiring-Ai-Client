@@ -15,6 +15,7 @@ export * from "./useCompany";
 export * from "./useAi";
 export * from "./useTeam";
 export * from "./useMounted";
+export * from "./usePersistentState";
 export * from "./useMediaQuery";
 export * from "./useCountUp";
 export * from "./useGsap";

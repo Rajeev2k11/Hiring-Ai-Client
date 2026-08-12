@@ -1,10 +1,14 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Users } from "lucide-react";
 
+import {
+  usePersistentState,
+  useScrollRestoration,
+} from "@/hooks/usePersistentState";
 import { PageHeader } from "@/components/app/PageHeader";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { EmptyState } from "@/components/app/EmptyState";
@@ -38,8 +42,15 @@ export default function CandidatesPage() {
 function CandidatesInner() {
   const params = useSearchParams();
   const initial = params.get("status");
-  const [tab, setTab] = useState<string | null>(initial);
+  // A ?status= deep link is an explicit instruction, so it wins over whatever
+  // filter this screen was left on.
+  const [tab, setTab] = usePersistentState<string | null>(
+    "candidates:tab",
+    initial,
+    initial === null
+  );
   const { data: candidates, isLoading } = useCandidates({ status: tab });
+  useScrollRestoration("candidates", !isLoading);
 
   return (
     <div className="mx-auto max-w-[1280px] px-5 py-8 lg:px-8">

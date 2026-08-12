@@ -69,6 +69,13 @@ export const outreachService = {
     return api.get<OutreachMessageDetail>(`recruiter/outreach/${messageId}`);
   },
 
+  /** Cancel the pending automatic follow-ups for a conversation. */
+  stopSequence(messageId: string): Promise<OutreachMessage> {
+    return api.post<OutreachMessage>(
+      `recruiter/outreach/${messageId}/stop-sequence`
+    );
+  },
+
   /** Opted-out addresses for this company. */
   suppressions(): Promise<OutreachSuppression[]> {
     return api.get<OutreachSuppression[]>("recruiter/outreach/suppressions");

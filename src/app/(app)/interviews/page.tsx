@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { CalendarCheck, CalendarPlus, Video } from "lucide-react";
 
@@ -10,6 +9,10 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useInterviews } from "@/hooks/useInterviews";
+import {
+  usePersistentState,
+  useScrollRestoration,
+} from "@/hooks/usePersistentState";
 import { INTERVIEW_STATUS_META, PLATFORM_LABELS } from "@/constants/status";
 import { InterviewStatus } from "@/types";
 import { cn } from "@/lib/utils";
@@ -23,8 +26,9 @@ const TABS = [
 ];
 
 export default function InterviewsPage() {
-  const [tab, setTab] = useState<string | null>(null);
+  const [tab, setTab] = usePersistentState<string | null>("interviews:tab", null);
   const { data: interviews, isLoading } = useInterviews(tab);
+  useScrollRestoration("interviews", !isLoading);
 
   return (
     <div className="mx-auto max-w-[1280px] px-5 py-8 lg:px-8">

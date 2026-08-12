@@ -76,6 +76,20 @@ export function useSendOutreach() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: OutreachSendInput) => outreachService.send(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["outreach"] });
+      // A send moves the match to CONTACTED server-side, so the shortlist and
+      // every ranked list showing that status are now stale.
+      qc.invalidateQueries({ queryKey: ["matching"] });
+    },
+  });
+}
+
+/** Cancel pending automatic follow-ups for a conversation. */
+export function useStopSequence() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (messageId: string) => outreachService.stopSequence(messageId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["outreach"] }),
   });
 }

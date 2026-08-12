@@ -3,17 +3,18 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, ChevronDown, Loader2, MapPin, Pencil, Radar, Share2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, Loader2, MapPin, Pencil, Radar, Share2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/app/StatusBadge";
+import { ConfirmDialog } from "@/components/app/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useJob, useUpdateJob } from "@/hooks/useJobs";
+import { useDeleteJob, useJob, useUpdateJob } from "@/hooks/useJobs";
 import { useCandidates, useUpdateApplicationStatus } from "@/hooks/useCandidates";
 import { useAuth } from "@/hooks/useAuth";
 import { useMounted } from "@/hooks/useMounted";
@@ -34,6 +35,8 @@ export default function JobDetailPage() {
   const { data: candidates, isLoading } = useCandidates({ job_id: id });
   const updateStatus = useUpdateApplicationStatus();
   const updateJob = useUpdateJob();
+  const deleteJob = useDeleteJob();
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const companyName = mounted && identity && isCompanyUser(identity) ? identity.company_name : "";
 
@@ -99,6 +102,20 @@ export default function JobDetailPage() {
     }
   };
 
+  const confirmDeleteJob = () => {
+    if (!job) return;
+    deleteJob.mutate(job.id, {
+      onSuccess: () => {
+        toast.success(`"${job.title}" deleted`);
+        setConfirmDelete(false);
+        router.push("/jobs");
+      },
+      onError: (e) => toast.error((e as Error).message || "Could not delete job"),
+    });
+  };
+
+  const applicantCount = candidates?.length ?? 0;
+
   return (
     <div className="mx-auto max-w-[1440px] px-5 py-8 lg:px-8">
       <Link href="/jobs" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
@@ -140,6 +157,16 @@ export default function JobDetailPage() {
           <Button variant="outline" size="sm">
             <Share2 className="size-4" /> Share
           </Button>
+          {job && !editing && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-red-300 hover:bg-destructive/10 hover:text-red-200"
+              onClick={() => setConfirmDelete(true)}
+            >
+              <Trash2 className="size-4" /> Delete
+            </Button>
+          )}
           <Button asChild variant="brand" size="sm">
             <Link href={`/jobs/${id}/matches`}>
               <Radar className="size-4" /> AI Match
@@ -147,6 +174,33 @@ export default function JobDetailPage() {
           </Button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete this role?"
+        description={
+          <>
+            <strong className="text-foreground">{job?.title}</strong> and its whole
+            pipeline will be permanently removed
+            {applicantCount > 0 ? (
+              <>
+                {" "}
+                — including{" "}
+                <strong className="text-foreground">
+                  {applicantCount} candidate{applicantCount === 1 ? "" : "s"}
+                </strong>
+                , their evaluations and any scheduled interviews
+              </>
+            ) : null}
+            . Talent-pool candidates are not affected. This cannot be undone.
+          </>
+        }
+        confirmLabel="Delete role"
+        requireTyping={applicantCount > 0 ? job?.title : undefined}
+        pending={deleteJob.isPending}
+        onConfirm={confirmDeleteJob}
+        onCancel={() => setConfirmDelete(false)}
+      />
 
       {/* Job details (read or edit) */}
       {jobLoading || !job ? (

@@ -60,14 +60,36 @@ export function useStartMatch() {
   });
 }
 
-/** Update a match's recruiter status (SAVED / REJECTED / CONTACTED). */
+/** Update a match's recruiter status (NEW / SAVED / REJECTED / CONTACTED). */
 export function useUpdateMatchStatus(jobId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ matchId, status }: { matchId: string; status: string }) =>
       matchingService.updateStatus(matchId, status),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ["matching", "candidates", jobId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["matching", "candidates", jobId] });
+      // The cross-job shortlist is built from these same statuses, so it goes
+      // stale on every change — including a save made from the matches screen.
+      qc.invalidateQueries({ queryKey: ["matching", "shortlist"] });
+    },
+  });
+}
+
+/**
+ * Set the same status on several matches at once, across any number of jobs.
+ *
+ * Backs "remove from shortlist" (status back to `NEW`, which drops them from
+ * the shortlist and returns them to the job's active list) and the undo that
+ * follows it — undo is just the same call with the original status.
+ */
+export function useSetMatchStatuses() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ matchIds, status }: { matchIds: string[]; status: string }) =>
+      Promise.all(matchIds.map((id) => matchingService.updateStatus(id, status))),
+    // Broad on purpose: the affected matches can span several jobs, so there is
+    // no single job key narrow enough to be worth the bookkeeping.
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["matching"] }),
   });
 }
 

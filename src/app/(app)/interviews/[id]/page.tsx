@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -14,6 +15,7 @@ import {
 import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/app/StatusBadge";
+import { ConfirmDialog } from "@/components/app/ConfirmDialog";
 import { Panel } from "@/components/app/Panel";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { UserAvatar } from "@/components/shared/UserAvatar";
@@ -35,6 +37,7 @@ export default function InterviewDetailPage() {
   const { data: iv, isLoading } = useInterview(id);
   const update = useUpdateInterview();
   const remove = useDeleteInterview();
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   if (isLoading || !iv) {
     return (
@@ -51,8 +54,11 @@ export default function InterviewDetailPage() {
     remove.mutate(id, {
       onSuccess: () => {
         toast.success("Interview removed");
+        setConfirmRemove(false);
         router.push("/interviews");
       },
+      onError: (e) =>
+        toast.error((e as Error).message || "Could not remove interview"),
     });
 
   return (
@@ -138,10 +144,31 @@ export default function InterviewDetailPage() {
             Cancel interview
           </Button>
         )}
-        <Button variant="ghost" className="text-red-300 hover:bg-destructive/10" onClick={onRemove} disabled={remove.isPending}>
+        <Button
+          variant="ghost"
+          className="text-red-300 hover:bg-destructive/10"
+          onClick={() => setConfirmRemove(true)}
+          disabled={remove.isPending}
+        >
           <Trash2 className="size-4" /> Remove
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={confirmRemove}
+        title="Remove this interview?"
+        description={
+          <>
+            The interview will be deleted from your calendar. Attendees are not
+            notified automatically — if it was already confirmed with the candidate,
+            cancel it instead so the status stays visible.
+          </>
+        }
+        confirmLabel="Remove interview"
+        pending={remove.isPending}
+        onConfirm={onRemove}
+        onCancel={() => setConfirmRemove(false)}
+      />
     </div>
   );
 }

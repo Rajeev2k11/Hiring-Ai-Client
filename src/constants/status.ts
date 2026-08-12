@@ -72,6 +72,24 @@ export const PLATFORM_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
+/**
+ * Automatic follow-up sequence states, mirroring the backend `SequenceState`.
+ * Only ACTIVE is still running; the rest record *why* the agent stopped, which
+ * is the thing a recruiter actually needs to read off the card.
+ */
+export const SEQUENCE_STATE_META: Record<string, StatusMeta> = {
+  ACTIVE: { label: "Following up", tone: "electric" },
+  STOPPED_REPLIED: { label: "They replied", tone: "success" },
+  STOPPED_APPLIED: { label: "They applied", tone: "success" },
+  STOPPED_UNSUBSCRIBED: { label: "Unsubscribed", tone: "danger" },
+  COMPLETED: { label: "No reply", tone: "neutral" },
+  STOPPED_MANUAL: { label: "Stopped by you", tone: "neutral" },
+  STOPPED_FAILED: { label: "Delivery failed", tone: "danger" },
+};
+
+/** Days the follow-up agent waits between nudges (backend FOLLOW_UP_DELAY_DAYS). */
+export const FOLLOW_UP_DELAY_DAYS = 4;
+
 /** Map an AI match score (0–100) to a tone for chips/rings. */
 export function scoreTone(score?: number | null): Tone {
   if (score === null || score === undefined) return "neutral";

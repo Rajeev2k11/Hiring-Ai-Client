@@ -38,6 +38,10 @@ import {
   useStartMatch,
   useUpdateMatchStatus,
 } from "@/hooks/useMatching";
+import {
+  usePersistentState,
+  useScrollRestoration,
+} from "@/hooks/usePersistentState";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import {
@@ -96,9 +100,14 @@ export default function JobMatchesPage() {
   const [providers, setProviders] = useState<string[]>(["internal"]);
   const initializedProvidersForJob = useRef<string | null>(null);
   const skipNextProviderPersist = useRef(false);
-  const [minScore, setMinScore] = useState(70);
-  const [statusTab, setStatusTab] = useState(""); // "" = Active (non-rejected)
-  const [runId, setRunId] = useState<string | null>(null);
+  // Filters and the in-flight run are kept per job, so leaving for another
+  // sidebar tab and coming back resumes the search instead of resetting it.
+  const [minScore, setMinScore] = usePersistentState(`matches:${id}:minScore`, 70);
+  const [statusTab, setStatusTab] = usePersistentState(`matches:${id}:statusTab`, ""); // "" = Active
+  const [runId, setRunId] = usePersistentState<string | null>(
+    `matches:${id}:runId`,
+    null
+  );
   const [outreachTarget, setOutreachTarget] = useState<{
     candidateId: string;
     name: string;
@@ -113,6 +122,8 @@ export default function JobMatchesPage() {
   });
   const updateStatus = useUpdateMatchStatus(id);
   const addToPool = useAddMatchToPool(id);
+
+  useScrollRestoration(`matches:${id}`, !matchesLoading);
 
   const providerCatalog = liveProviders?.length ? liveProviders : FALLBACK_PROVIDERS;
   const providerGroups = useMemo(() => {

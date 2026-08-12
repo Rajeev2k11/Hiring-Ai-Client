@@ -51,4 +51,12 @@ export const jobsService = {
   update(id: string, payload: JobUpdateInput): Promise<Job> {
     return api.patch<Job>(`jobs/${id}`, payload);
   },
+
+  /**
+   * Permanently delete a job — DELETE /jobs/{id}. The backend also clears the
+   * role's pipeline and match runs; pool candidates are untouched.
+   */
+  remove(id: string): Promise<void> {
+    return api.del<void>(`jobs/${id}`);
+  },
 };

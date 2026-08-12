@@ -63,6 +63,11 @@ export interface OutreachPreview {
   job_id: string;
   job_title: string;
   kind: string;
+  /**
+   * Templates this candidate's history supports. INVITE is always present;
+   * SHORTLIST needs an application, REJECTION an application or a match.
+   */
+  allowed_kinds: string[];
   subject: string;
   body_text: string;
   body_html: string;
@@ -94,6 +99,14 @@ export interface OutreachMessage {
   replied_at: ISODateString | null;
   created_at: ISODateString;
   reply_count: number;
+
+  /** 0 for the opening mail, 1..n for each automatic nudge. */
+  sequence_step: number;
+  /** Null when no follow-up sequence was armed. @see SEQUENCE_STATE_META */
+  sequence_state: string | null;
+  /** When the next nudge is scheduled; null once the sequence is terminal. */
+  follow_up_due_at: ISODateString | null;
+  max_follow_ups: number;
 }
 
 export interface OutreachMessageDetail extends OutreachMessage {
@@ -108,6 +121,8 @@ export interface OutreachSendInput {
   kind?: string | null;
   subject?: string | null;
   body_text?: string | null;
+  /** Automatic nudges if there's no reply (0-2). Ignored for SHORTLIST. */
+  follow_ups?: number;
 }
 
 export interface OutreachSendResult {

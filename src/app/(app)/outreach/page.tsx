@@ -10,12 +10,14 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Ban,
+  CircleStop,
   Inbox,
   Loader2,
   Mail,
   MailCheck,
   MailX,
   RefreshCw,
+  Repeat,
   Send,
   Settings2,
 } from "lucide-react";
@@ -32,8 +34,14 @@ import {
   useOutreachMessage,
   useOutreachMessages,
   usePollReplies,
+  useStopSequence,
   useSuppressions,
 } from "@/hooks/useOutreach";
+import { SEQUENCE_STATE_META } from "@/constants/status";
+import {
+  usePersistentState,
+  useScrollRestoration,
+} from "@/hooks/usePersistentState";
 import { formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Tone } from "@/constants/status";
@@ -59,12 +67,18 @@ const TABS = [
 ];
 
 export default function OutreachPage() {
-  const [status, setStatus] = useState("");
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [status, setStatus] = usePersistentState("outreach:status", "");
+  // Which thread was expanded is part of "where I was" too — the inbox is long
+  // and re-finding the open message after a detour is pure friction.
+  const [openId, setOpenId] = usePersistentState<string | null>(
+    "outreach:openId",
+    null
+  );
   const [showSuppressions, setShowSuppressions] = useState(false);
 
   const { data: account } = useEmailAccount();
   const { data: messages, isLoading } = useOutreachMessages({ status: status || undefined });
+  useScrollRestoration("outreach", !isLoading);
   const { data: suppressions } = useSuppressions();
   const poll = usePollReplies();
 
@@ -254,8 +268,13 @@ function MessageRow({
   onToggle: () => void;
 }) {
   const { data: detail, isLoading } = useOutreachMessage(open ? message.id : null);
+  const stopSequence = useStopSequence();
   const statusMeta = STATUS_META[message.status] ?? { label: message.status, tone: "neutral" as Tone };
   const kindMeta = KIND_META[message.kind] ?? { label: message.kind, tone: "neutral" as Tone };
+  const sequenceMeta = message.sequence_state
+    ? SEQUENCE_STATE_META[message.sequence_state]
+    : null;
+  const sequenceRunning = message.sequence_state === "ACTIVE";
 
   return (
     <div className="rounded-2xl border border-border/70 bg-card/40 transition-colors hover:border-electric/30">
@@ -276,6 +295,12 @@ function MessageRow({
                 {message.reply_count} repl{message.reply_count === 1 ? "y" : "ies"}
               </Badge>
             )}
+            {sequenceMeta && (
+              <Badge tone={sequenceMeta.tone}>
+                <Repeat className="mr-1 inline size-3" />
+                {sequenceMeta.label}
+              </Badge>
+            )}
           </div>
           <p className="mt-1 truncate text-sm text-foreground/80">{message.subject}</p>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -283,6 +308,14 @@ function MessageRow({
             {message.sent_at ? ` · sent ${formatRelative(message.sent_at)}` : ""}
             {message.replied_at ? ` · replied ${formatRelative(message.replied_at)}` : ""}
           </p>
+          {sequenceRunning && message.follow_up_due_at && (
+            <p className="mt-1 text-xs text-electric-soft">
+              Next automatic follow-up {formatRelative(message.follow_up_due_at)}
+              {message.max_follow_ups > 0
+                ? ` · ${message.sequence_step}/${message.max_follow_ups} sent`
+                : ""}
+            </p>
+          )}
           {message.failure_reason && (
             <p className="mt-1 text-xs text-red-400">{message.failure_reason}</p>
           )}
@@ -296,6 +329,37 @@ function MessageRow({
             <Skeleton className="h-24 w-full" />
           ) : (
             <>
+              {sequenceRunning && (
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-electric/30 bg-electric/5 p-3">
+                  <p className="text-xs text-muted-foreground">
+                    Automatic follow-ups are on. They stop by themselves if{" "}
+                    {message.to_name ?? "the candidate"} replies, applies, or
+                    unsubscribes.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={stopSequence.isPending}
+                    onClick={() =>
+                      stopSequence.mutate(message.id, {
+                        onSuccess: () => toast.success("Follow-ups stopped."),
+                        onError: (e) =>
+                          toast.error(
+                            (e as Error).message || "Could not stop follow-ups"
+                          ),
+                      })
+                    }
+                  >
+                    {stopSequence.isPending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <CircleStop className="size-4" />
+                    )}
+                    Stop follow-ups
+                  </Button>
+                </div>
+              )}
+
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Sent message
               </p>
