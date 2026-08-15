@@ -31,7 +31,9 @@ export function useCreateJob() {
     mutationFn: (payload: JobCreateInput) => jobsService.create(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.jobs.all });
-      qc.invalidateQueries({ queryKey: queryKeys.dashboard.stats });
+      // Whole dashboard prefix: stats AND the jobs table (every status tab),
+      // so a freshly published job appears in the list without a reload.
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
     },
   });
 }
@@ -44,7 +46,24 @@ export function useUpdateJob() {
     onSuccess: (job) => {
       qc.invalidateQueries({ queryKey: queryKeys.jobs.all });
       qc.invalidateQueries({ queryKey: queryKeys.jobs.detail(job.id) });
-      qc.invalidateQueries({ queryKey: queryKeys.dashboard.stats });
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+    },
+  });
+}
+
+export function useDeleteJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => jobsService.remove(id),
+    onSuccess: (_data, id) => {
+      // The role's pipeline, matches and interviews go with it server-side, so
+      // drop the stale detail entry and refetch everything that counted it.
+      qc.removeQueries({ queryKey: queryKeys.jobs.detail(id) });
+      qc.invalidateQueries({ queryKey: queryKeys.jobs.all });
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+      qc.invalidateQueries({ queryKey: queryKeys.candidates.all });
+      qc.invalidateQueries({ queryKey: queryKeys.interviews.all });
+      qc.invalidateQueries({ queryKey: ["matching"] });
     },
   });
 }

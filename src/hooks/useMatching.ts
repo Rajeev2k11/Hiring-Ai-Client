@@ -1,0 +1,114 @@
+"use client";
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import { matchingService } from "@/services";
+import { queryKeys } from "@/lib/query-keys";
+import { SourcingRunStatus } from "@/types";
+import type { MatchRunCreateInput } from "@/types";
+
+/** Selectable internal/external source catalog with live availability. */
+export function useMatchProviders() {
+  return useQuery({
+    queryKey: ["matching", "providers"],
+    queryFn: () => matchingService.providers(),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/** Poll a match run while it's in flight (mirrors the backend worker). */
+export function useMatchRun(runId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.matching.run(runId ?? ""),
+    queryFn: () => matchingService.getRun(runId as string),
+    enabled: enabled && Boolean(runId),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === SourcingRunStatus.RUNNING ||
+        status === SourcingRunStatus.PENDING
+        ? 2000
+        : false;
+    },
+  });
+}
+
+/** Ranked candidate matches for a job. */
+export function useJobMatches(
+  jobId: string,
+  filters: { min_score?: number; status?: string } = {},
+  enabled = true
+) {
+  return useQuery({
+    queryKey: queryKeys.matching.candidates(jobId, filters),
+    queryFn: () => matchingService.jobCandidates(jobId, filters),
+    enabled: enabled && Boolean(jobId),
+  });
+}
+
+/** Parse a job's description into structured requirements. */
+export function useParseRequirements() {
+  return useMutation({
+    mutationFn: (jobId: string) => matchingService.parseRequirements(jobId),
+  });
+}
+
+/** Start a match run for a job. */
+export function useStartMatch() {
+  return useMutation({
+    mutationFn: ({ jobId, payload }: { jobId: string; payload?: MatchRunCreateInput }) =>
+      matchingService.startMatch(jobId, payload),
+  });
+}
+
+/** Update a match's recruiter status (NEW / SAVED / REJECTED / CONTACTED). */
+export function useUpdateMatchStatus(jobId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ matchId, status }: { matchId: string; status: string }) =>
+      matchingService.updateStatus(matchId, status),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["matching", "candidates", jobId] });
+      // The cross-job shortlist is built from these same statuses, so it goes
+      // stale on every change — including a save made from the matches screen.
+      qc.invalidateQueries({ queryKey: ["matching", "shortlist"] });
+    },
+  });
+}
+
+/**
+ * Set the same status on several matches at once, across any number of jobs.
+ *
+ * Backs "remove from shortlist" (status back to `NEW`, which drops them from
+ * the shortlist and returns them to the job's active list) and the undo that
+ * follows it — undo is just the same call with the original status.
+ */
+export function useSetMatchStatuses() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ matchIds, status }: { matchIds: string[]; status: string }) =>
+      Promise.all(matchIds.map((id) => matchingService.updateStatus(id, status))),
+    // Broad on purpose: the affected matches can span several jobs, so there is
+    // no single job key narrow enough to be worth the bookkeeping.
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["matching"] }),
+  });
+}
+
+/** Cross-job shortlist (saved / contacted candidates across all jobs). */
+export function useShortlist(status = "SAVED") {
+  return useQuery({
+    queryKey: queryKeys.matching.shortlist(status),
+    queryFn: () => matchingService.shortlist(status),
+  });
+}
+
+/** Import a discovered match into the talent pool. */
+export function useAddMatchToPool(jobId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (matchId: string) => matchingService.addToPool(matchId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["matching", "candidates", jobId] });
+      qc.invalidateQueries({ queryKey: ["pool"] });
+    },
+  });
+}

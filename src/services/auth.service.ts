@@ -22,6 +22,7 @@ import type {
 const demoUser: CompanyUser = {
   id: TEAM[0].id,
   company_id: COMPANY.id,
+  company_name: COMPANY.name,
   email: TEAM[0].email,
   name: TEAM[0].name,
   role: TEAM[0].role,

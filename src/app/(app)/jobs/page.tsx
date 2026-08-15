@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Briefcase, FileText, LayoutGrid, Plus, Users } from "lucide-react";
 
@@ -11,6 +10,10 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDashboardStats, useDashboardJobs } from "@/hooks/useDashboard";
+import {
+  usePersistentState,
+  useScrollRestoration,
+} from "@/hooks/usePersistentState";
 import { JOB_STATUS_META } from "@/constants/status";
 import { JobStatus } from "@/types";
 import { cn, hashUnit } from "@/lib/utils";
@@ -51,9 +54,11 @@ function AvatarStack({ seed, count }: { seed: string; count: number }) {
 }
 
 export default function JobsPage() {
-  const [tab, setTab] = useState<string | null>(null);
+  const [tab, setTab] = usePersistentState<string | null>("jobs:tab", null);
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: jobs, isLoading } = useDashboardJobs(tab);
+
+  useScrollRestoration("jobs", !isLoading);
 
   return (
     <div className="mx-auto max-w-[1280px] px-5 py-8 lg:px-8">
@@ -62,7 +67,7 @@ export default function JobsPage() {
         description="Manage and track your active job listings across the organization."
         actions={
           <Button asChild variant="brand">
-            <Link href="/jobs/new">
+            <Link href="/jobs/new/ai">
               <Plus className="size-4" /> Create Job
             </Link>
           </Button>
@@ -120,7 +125,7 @@ export default function JobsPage() {
             description="Create your first job and let the agents start sourcing."
             action={
               <Button asChild variant="brand">
-                <Link href="/jobs/new">
+                <Link href="/jobs/new/ai">
                   Create Job <ArrowRight className="size-4" />
                 </Link>
               </Button>

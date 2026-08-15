@@ -11,7 +11,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       nav={APP_NAV}
       subtitle="Executive Suite"
       searchPlaceholder="Search candidates, jobs, or reports…"
-      primaryCta={{ label: "Post a Job", href: "/jobs/new" }}
+      primaryCta={{ label: "Post a Job", href: "/jobs/new/ai" }}
       requiredActor="company_user"
       otherActorHome="/portal"
       enforceOnboarding

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { HelpCircle, LogOut, Plus } from "lucide-react";
@@ -8,6 +9,7 @@ import { Logo } from "@/components/shared/Logo";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useMounted } from "@/hooks/useMounted";
+import { useSectionMemory } from "@/hooks/usePersistentState";
 import { cn } from "@/lib/utils";
 import { isCompanyUser } from "@/types";
 import type { AppNavItem } from "@/constants/navigation";
@@ -49,6 +51,26 @@ export function AppSidebar({
     .filter((href) => pathname === href || pathname.startsWith(href + "/"))
     .sort((a, b) => b.length - a.length)[0];
 
+  const { remember, recall } = useSectionMemory();
+
+  // Record the deepest route visited in each section so the nav item can send
+  // the recruiter back to the role/candidate they were working on.
+  useEffect(() => {
+    if (activeHref) remember(activeHref, pathname);
+  }, [activeHref, pathname, remember]);
+
+  /**
+   * Clicking the section you're already inside means "take me up to the list" —
+   * so only a *different* section resumes where you left off. Without that,
+   * there'd be no way back out of a detail page from the sidebar.
+   */
+  const hrefFor = (href: string) => {
+    // Before mount the stored route is unreadable, and rendering a different
+    // href on the client than the server sent would be a hydration mismatch.
+    if (!mounted || href === activeHref) return href;
+    return recall(href) ?? href;
+  };
+
   return (
     <aside className="sticky top-0 hidden h-screen w-[264px] shrink-0 flex-col border-r border-border/60 bg-card/30 px-4 py-5 lg:flex">
       <div className="px-2">
@@ -73,7 +95,7 @@ export function AppSidebar({
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={hrefFor(item.href)}
               className={cn(
                 "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
                 active
